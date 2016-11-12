@@ -58,6 +58,9 @@ class categories:
         else:
             raise ValueError("There is no category with the id", id_)
     
+    def all_names(self):
+        return [n[0] for n in self.cats.values()]
+    
     def parent_id(self, id_):
         if id_ in self.subcats.keys():
             return self.subcats[id_]

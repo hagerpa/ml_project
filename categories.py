@@ -2,8 +2,15 @@ import csv
 import re
 
 class categories:
+    """A object of this class keeps track of all the categories in the classification task.
+    Its handy since it automatically reads the available categoires and subcategories from
+    a CSV file. Its saves mappings beteween categories and subcatgeories.
+    More over the class offers a method for printing all categories in a need way, and also
+    ofers mehtods for quick acess on category information."""
     
     def __init__(self):
+        """ By initializing a categorie object like this, immidiatly avaliable categories are
+        read from the category.csv file."""
         self.cats = {}
         self.subcats = {}
         self.loadfromfile()
@@ -16,6 +23,7 @@ class categories:
         file.close()
     
         # list of regular expressions that should be subtituted prior to read via CSV-reader
+        # by removing these exprecions, e.g. <span style=.....</span> a frictionless read is assured.
         regexps = [(r"\\\"", "'"), 
                    (re.compile(r"<span.*?/span>", re.DOTALL), ""),
                    (r"<p.*?>", ""),
@@ -50,6 +58,11 @@ class categories:
         return out
     
     def name(self, id_):
+        """This method returns the feature name of the category for a given id.
+        Note that it will always return the name of the parent categoy if a id
+        of a subcategory is given. The feature name is a conected lowercase name
+        with refrence to the semantic content of the category.
+        """
         # returns the category name of the parent for a given category id
         if id_ in self.cats.keys():
             return self.cats[id_][0]

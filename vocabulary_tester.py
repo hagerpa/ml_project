@@ -3,12 +3,14 @@ from nltk import NaiveBayesClassifier, ConfusionMatrix
 import time
 import csv
 
-def test(vocabularies, corpus, feature_extractor=simple_features, tr_set_size=8000, te_set_size=2000):
+def test(vocabularies, corpus, feature_extractor=simple_features, tr_set_size=8000, te_set_size=2000, csv_file_write=None):
     """This is a simple method to evaluate the perfomance of diffrent kinds of
     vocabulary on a "NavieBayesClassifier" (from the nltk package). We understand
     the "vocabulary" as a set of words from wich we can build features.
     In the default case we use the "simple_features" extractor wich simply checks
     for a training example whether a word from the vocabulary is contained or not.
+    The results will be written in a CSV-files at ./vocabulary_test_results/, the
+    name of the files contains the current datum and time.
     
     Key Inputs:
     - vacublaries: a dictionary which as keys has the name of the vocabulary and as
@@ -16,14 +18,20 @@ def test(vocabularies, corpus, feature_extractor=simple_features, tr_set_size=80
     - corpus: a list of tuples of the form (words, category), where words must be a
                 list of words. Pay attantion that thes words are processed such that
                 the fit with the vocabulary.
+    - csv_file_writer: if you arleady open a CSV-file you can pass the CSV-write to 
+        this method and it will use your writer.
     """
 
     classifiers = {}
     results = []
     
-    file_name = time.strftime("vacabulary_test_results/evaluation_%d-%m-%Y_%H-%M.csv", time.gmtime())
-    res_file = open(file_name, 'w+')
-    res_writer = csv.writer(res_file)
+    if csv_file_writer == None:
+        file_name = time.strftime("vacabulary_test_results/evaluation_%d-%m-%Y_%H-%M.csv", time.gmtime())
+        res_file = open(file_name, 'w+')
+        res_writer = csv.writer(res_file)
+    else:
+        res_writer = csv_file_write
+    
     res_writer.writerow(["vocabulary_type", "vocabulary_length", "tr_set_size", "te_set_size", "standard_accuracy", "uniform_accuracy"])
     
     # training calssifiers
@@ -51,13 +59,15 @@ def test(vocabularies, corpus, feature_extractor=simple_features, tr_set_size=80
         
         res_writer.writerow([cf, len(vocabularies[cf]), tr_set_size, te_set_size, standard_accuracy(cm, set(indeed) ), uniform_accuracy(cm, set(indeed) )])
         
-        print(" --- standart accurcy:", standard_accuracy(cm, set(indeed) ))
-        print(" --- uniform accuracy:", uniform_accuracy(cm, set(indeed) ))
-        #accuracy_list(cm, categories)
+        labels_te_set = set(indeed)
+        print(" --- standart accurcy:", standard_accuracy(cm, labels_te_set))
+        print(" --- uniform accuracy:", uniform_accuracy(cm, labels_te_set))
     
         print("")
     
-    res_file.close()
+    if csv_file_write == None:
+        res_file.close()
+    
     print("\n test are all finshed and saved into file!")
     #print(cm.pretty_format(sort_by_count=True, show_percents=True, truncate=12))
 

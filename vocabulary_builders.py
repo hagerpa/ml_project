@@ -83,6 +83,6 @@ def ig_based(frequencies, cat_frequencies, categories, M=100, read_from_file=Fal
     for cat in bar(categories):
         lis = [(information_gain[(w,cat)], w) for w in frequencies['all']]
         lis.sort()
-        vocab = vocab.union([w for _, w in lis[-150:]])
+        vocab = vocab.union([w for _, w in lis[-M:]])
     
     return vocab

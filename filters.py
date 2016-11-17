@@ -1,5 +1,6 @@
 import re
 from nltk import snowball
+from nltk.corpus import stopwords
 
 """ This file contains only filters, those are methods that have as a input and output either a
 list of strings, or just a string. Such methods are ment to remove unnecessaire elements, or filter 
@@ -50,3 +51,12 @@ def stemming_filter(words):
     than a single string."""
     stemmer = snowball.GermanStemmer()
     return [stemmer.stem(w) for w in words]
+
+def stopword_filter(words):
+    """Thise method removes all stopwords/functionwords contained in nltk.corpus.stopwords.words('german')"""
+    new_words = []
+    for w in words:
+        if w in stopwords.words("german"): continue
+        else: new_words += [w]
+    return new_words
+    

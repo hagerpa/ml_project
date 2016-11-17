@@ -3,7 +3,7 @@ from nltk import NaiveBayesClassifier, ConfusionMatrix
 import time
 import csv
 
-def test(vocabularies, corpus, feature_extractor=simple_features, tr_set_size=8000, te_set_size=2000, csv_file_write=None):
+def test(vocabularies, corpus, feature_extractor=simple_features, tr_set_size=8000, te_set_size=2000, csv_file_writer=None):
     """This is a simple method to evaluate the perfomance of diffrent kinds of
     vocabulary on a "NavieBayesClassifier" (from the nltk package). We understand
     the "vocabulary" as a set of words from wich we can build features.
@@ -65,7 +65,7 @@ def test(vocabularies, corpus, feature_extractor=simple_features, tr_set_size=80
     
         print("")
     
-    if csv_file_write == None:
+    if csv_file_writer == None:
         res_file.close()
     
     print("\n test are all finshed and saved into file!")

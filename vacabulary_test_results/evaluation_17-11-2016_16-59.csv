@@ -1,0 +1,8 @@
+vocabulary_type,vocabulary_length,tr_set_size,te_set_size,standard_accuracy,uniform_accuracy
+ig_based_non_uniform (M = 1000),513,10000,4000,0.57625,0.4994154476258803
+ig_based_non_uniform (M = 4000),2256,10000,4000,0.6115,0.5119393048825388
+ig_based_non_uniform (M = 7000),3762,10000,4000,0.616,0.507241637414363
+ig_based_non_uniform (M = 3000),1620,10000,4000,0.603,0.5127820250986423
+ig_based_non_uniform (M = 2000),1068,10000,4000,0.6015,0.5224145147366559
+ig_based_non_uniform (M = 6000),3251,10000,4000,0.616,0.507241637414363
+ig_based_non_uniform (M = 5000),2901,10000,4000,0.616,0.507241637414363

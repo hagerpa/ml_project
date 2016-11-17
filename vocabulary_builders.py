@@ -52,8 +52,35 @@ def ig_based(frequencies, cat_frequencies, categories, M=100, read_from_file=Fal
     is first calculated, or if so specified read from file.
     
     """
-    information_gain = {}
+    information_gain = calculate_ig_values(frequencies, cat_frequencies, categories, read_from_file)
+    # picking those M terms with the best ig-index
+    vocab = set()
+    for cat in categories:
+        lis = [(information_gain[(w,cat)], w) for w in frequencies['all']]
+        lis.sort()
+        vocab = vocab.union([w for _, w in lis[-M:]])
     
+    return vocab
+
+def ig_based_non_uniform(frequencies, cat_frequencies, categories, M=1000, read_from_file=False):
+    """This method builds a vocabulary by selecting M words form the overall corpus
+    vocabulary with the best "information-gain" index. Therefore the information gain index
+    is first calculated, or if so specified read from file.
+    
+    """
+    information_gain = calculate_ig_values(frequencies, cat_frequencies, categories, read_from_file)
+    # picking those M terms with the best ig-index
+    vocab = set()
+    for cat in categories:
+        lis = [(information_gain[(w,cat)], w) for w in frequencies['all']]
+        lis.sort()
+        m = int(cat_frequencies.freq(cat) * M)
+        vocab = vocab.union([w for _, w in lis[-m:]])
+    return vocab
+
+
+def calculate_ig_values(frequencies, cat_frequencies, categories, read_from_file):
+    information_gain = {}
     # caluculating/reading the information-gain index
     if (not read_from_file):
         bar = progressbar.ProgressBar()
@@ -75,14 +102,5 @@ def ig_based(frequencies, cat_frequencies, categories, M=100, read_from_file=Fal
         ## Loading from pickle files
         ig_file = open('information_gain.pkl', 'rb')
         information_gain = pickle.load(ig_file)
-        
     
-    vocab = set()
-
-    bar = progressbar.ProgressBar()
-    for cat in bar(categories):
-        lis = [(information_gain[(w,cat)], w) for w in frequencies['all']]
-        lis.sort()
-        vocab = vocab.union([w for _, w in lis[-M:]])
-    
-    return vocab
+    return information_gain

@@ -1,0 +1,7 @@
+vocabulary_builder,comment,arguments,vocabulary_length,tr_set_size,te_set_size,standard_accuracy,uniform_accuracy
+most-common,without stemming,{'M': 200},1756,1000,100,0.3,0.18758503401360543
+most-common,without stemming,{'M': 300},2127,1000,100,0.3,0.16823979591836732
+most-common,without stemming,{'M': 400},2276,1000,100,0.31,0.1733418367346939
+most-common,stemming,{'M': 200},1642,1000,100,0.33,0.2050878684807256
+most-common,stemming,{'M': 300},1964,1000,100,0.36,0.223188517831375
+most-common,stemming,{'M': 400},2106,1000,100,0.35,0.20285121624407337

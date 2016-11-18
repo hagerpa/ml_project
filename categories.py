@@ -1,5 +1,6 @@
 import csv
 import re
+import nltk
 
 class categories:
     """A object of this class keeps track of all the categories in the classification task.
@@ -14,6 +15,7 @@ class categories:
         self.cats = {}
         self.subcats = {}
         self.loadfromfile()
+        self.frequencies = nltk.FreqDist()
     
     def loadfromfile(self, print_changes=False):
         # opening original csv file
@@ -122,10 +124,3 @@ def make_feature_name(name):
     for find, replace in regexps:
         featurename = re.sub(find, replace, featurename)
     return featurename.lower()
-
-
-
-
-
-
-

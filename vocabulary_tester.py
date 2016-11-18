@@ -1,9 +1,11 @@
 from feature_extractors import simple_features 
 from nltk import NaiveBayesClassifier, ConfusionMatrix
+import numpy as np
+import itertools
 import time
 import csv
 
-def test(vocabularies, corpus, feature_extractor=simple_features, tr_set_size=8000, te_set_size=2000, csv_file_writer=None):
+def test(vocabulary_builder_name, vocabulary_builder, arguments, corpus, feature_extractor=simple_features, csv_file_writer=None):
     """This is a simple method to evaluate the perfomance of diffrent kinds of
     vocabulary on a "NavieBayesClassifier" (from the nltk package). We understand
     the "vocabulary" as a set of words from wich we can build features.
@@ -15,56 +17,67 @@ def test(vocabularies, corpus, feature_extractor=simple_features, tr_set_size=80
     Key Inputs:
     - vacublaries: a dictionary which as keys has the name of the vocabulary and as
                     values sets of strings.
-    - corpus: a list of tuples of the form (words, category), where words must be a
-                list of words. Pay attantion that thes words are processed such that
-                the fit with the vocabulary.
+    - corpus: a list of tuples of the form (words, category), where words must be a 
+            list of words. Pay attantion that thes words are processed such that
+            the fit with the vocabulary.
     - csv_file_writer: if you arleady open a CSV-file you can pass the CSV-write to 
         this method and it will use your writer.
     """
 
     classifiers = {}
-    results = []
     
+    # creating a CSV file where evaluations will be saved
     if csv_file_writer == None:
-        file_name = time.strftime("vacabulary_test_results/evaluation_%d-%m-%Y_%H-%M.csv", time.gmtime())
+        file_name = "vacabulary_test_results/evaluation_" + vocabulary_builder_name
+        file_name += time.strftime("_%d-%m-%Y_%H-%M.csv", time.gmtime())
         res_file = open(file_name, 'w+')
         res_writer = csv.writer(res_file)
     else:
-        res_writer = csv_file_write
+        res_writer = csv_file_writer
     
-    res_writer.writerow(["vocabulary_type", "vocabulary_length", "tr_set_size", "te_set_size", "standard_accuracy", "uniform_accuracy"])
+    if csv_file_writer == None: # if this is a new file than write the header
+        res_writer.writerow(["vocabulary_builder", "comment", "arguments", "vocabulary_length", "tr_set_size", "te_set_size", "standard_accuracy", "uniform_accuracy"])
     
-    # training calssifiers
-    for vocab_key in vocabularies.keys():
-        print("training '{0}' classifier...".format(vocab_key))
-        vocab = vocabularies[vocab_key]
-    
-        feature_set = [ (feature_extractor(vocab, q), cat) for q, cat in corpus ]
-        te_max = max(tr_set_size + te_set_size, len(feature_set))
-        train_set, test_set = feature_set[:tr_set_size], feature_set[tr_set_size:tr_set_size + te_set_size]
-    
-        classifiers[vocab_key] = NaiveBayesClassifier.train(train_set)
-        print(" --- classifier is trained.")
-    
-    print("")
-    
-    # evaluating calssifiers
-    for cf in classifiers.keys():
-        print("testing '{0}' classifier: ".format(cf))
-        print(" --- vocabulary volume: ", len(vocabularies[cf]))
-    
-        res = [classifiers[cf].classify(q) for q, _ in test_set]
-        indeed = [c for _, c in test_set]
+    for comment, args in arguments:
+        print("{0} vocabulary builder, arguments {1}, {2}".format(vocabulary_builder_name, str(args), comment))
+        vocabulary = vocabulary_builder(corpus, **args)
+        tr_set = [ (feature_extractor(vocabulary, q["words"]), q["category"]) for q in corpus.tr_set ]
+        te_set = [ (feature_extractor(vocabulary, q["words"]), q["category"]) for q in corpus.te_set ]
+        
+        print(" --- vocabulary volume: ", len(vocabulary) )
+        print(" --- training classifier...")
+        
+        classifier = NaiveBayesClassifier.train( tr_set )
+        print(" --- ...classifier is trained.")
+        
+        # evaluating calssifiers
+        print(" --- testing classifier: ")
+        
+        res = [classifier.classify(q) for q, _ in te_set]
+        indeed = [c for _, c in te_set]
         cm = ConfusionMatrix(indeed, res)
         
-        res_writer.writerow([cf, len(vocabularies[cf]), tr_set_size, te_set_size, standard_accuracy(cm, set(indeed) ), uniform_accuracy(cm, set(indeed) )])
+        labelset_te_set = set(indeed) # in case not all categories accured in the test set
         
+        st_accuracy = standard_accuracy(cm, labelset_te_set )
+        un_accuracy = uniform_accuracy(cm, labelset_te_set)
+        
+        res_writer.writerow([vocabulary_builder_name,
+                            comment,
+                            str(args),
+                            len(vocabulary),
+                            len(tr_set),
+                            len(te_set),
+                            st_accuracy,
+                            un_accuracy
+                        ])
+    
         labels_te_set = set(indeed)
         print(" --- standart accurcy:", standard_accuracy(cm, labels_te_set))
         print(" --- uniform accuracy:", uniform_accuracy(cm, labels_te_set))
-    
+
         print("")
-    
+
     if csv_file_writer == None:
         res_file.close()
     

@@ -79,7 +79,8 @@ def ig_based_non_uniform(corpus, M=1000, read_from_file=False):
     for cat in categories.all_names():
         lis = [(information_gain[(w,cat)], w) for w in corpus.frequencies['all']]
         lis.sort()
-        m = int(cat_frequencies.freq(cat) * M)
+        m = int(corpus.cats.frequencies.freq(cat) * M)
+        if m == 0: m = 1
         vocab = vocab.union([w for _, w in lis[-m:]])
     
     return vocab
@@ -88,9 +89,8 @@ def calculate_ig_values(frequencies, cat_frequencies, categories, read_from_file
     information_gain = {}
     # caluculating/reading the information-gain index
     if (not read_from_file):
-        bar = progressbar.ProgressBar()
         
-        for w in bar(frequencies['all']):
+        for w in frequencies['all']:
             for cat in categories.all_names():
                 information_gain[(w, cat)] = 0
                 
@@ -109,3 +109,62 @@ def calculate_ig_values(frequencies, cat_frequencies, categories, read_from_file
         information_gain = pickle.load(ig_file)
     
     return information_gain
+    
+def xi_square_based(corpus, M=100, read_from_file=False):
+    """This method builds a vocabulary by selecting M words form the overall corpus
+    vocabulary with the best "xi-square" index. Therefore the xi-squre index
+    is first calculated, or if so specified read from file.
+    
+    """
+    categories = corpus.cats
+    xi_square = calculate_xi_sqaure_values(corpus, read_from_file)
+    
+    # picking those M terms with the best xi-square
+    vocab = set()
+    for cat in categories.all_names():
+        lis = [(xi_square[(w,cat)], w) for w in corpus.frequencies['all']]
+        lis.sort()
+        vocab = vocab.union([w for _, w in lis[-M:]])
+    
+    return vocab
+
+def calculate_xi_sqaure_values(corpus, read_from_file):
+    xi_square = {}
+    cat_freq = corpus.cats.frequencies
+    t_freq = corpus.frequencies["all"]
+    
+    # caluculating/reading the xi-square-gain index
+    if (not read_from_file):
+        
+        for w in corpus.frequencies['all']:
+            for cat in corpus.cats.all_names():
+                xi_square[(w, cat)] = 0
+                
+                if (cat_freq.freq(cat) <= 0) | (cat_freq.freq(cat) >= 1): continue
+                
+                a = ( corpus.frequencies[cat].freq(w) * cat_freq.freq(cat) )
+                b = ( ( 1 - t_freq.freq(w) ) - (1 - corpus.frequencies[cat].freq(w)) * cat_freq.freq(cat) ) / (1 - cat_freq.freq(cat))
+                c = 1 - b
+                d = 1 - a
+                e = t_freq.freq(w) * (1 - t_freq.freq(w)) * cat_freq.freq(cat) * (1 - cat_freq.freq(cat))
+                g = len(corpus.te_set)
+                
+                xi_square[(w, cat)] = g*(a*b - c*d)**2 / e
+                
+        ## Saving into pickle files
+        xi_square_file = open('xi_square.pkl', 'wb+')
+        pickle.dump(xi_square, xi_square_file)
+    else:
+        ## Loading from pickle files
+        xi_square_file = open('xi_square.pkl', 'rb')
+        xi_square = pickle.load(xi_square_file)
+    
+    return xi_square
+
+
+
+
+
+
+
+

@@ -110,23 +110,89 @@ def calculate_ig_values(frequencies, cat_frequencies, categories, read_from_file
     
     return information_gain
     
+    
 def xi_square_based(corpus, M=100, read_from_file=False):
+    return cc_based(corpus, M=M, read_from_file=read_from_file, xi_squared=True)
+
+def xi_square_based_overall(corpus, M=1000, read_from_file=False):
+    return cc_based(corpus, M=M, read_from_file=read_from_file, xi_squared=True)
+
+def cc_based(corpus, M=100, read_from_file=False, xi_squared=False):
     """This method builds a vocabulary by selecting M words form the overall corpus
-    vocabulary with the best "xi-square" index. Therefore the xi-squre index
+    vocabulary with the best "correlation coefficient" index. Therefore the xi-squre index
     is first calculated, or if so specified read from file.
     
-    """
-    categories = corpus.cats
-    xi_square = calculate_xi_sqaure_values(corpus, read_from_file)
+    """ 
+    p = 2 if xi_square else 1
     
-    # picking those M terms with the best xi-square
+    categories = corpus.cats
+    cc = calculate_cc_values(corpus, read_from_file)
+    
+    # picking those M terms with the best cc vlaues, for each category
     vocab = set()
     for cat in categories.all_names():
-        lis = [(xi_square[(w,cat)], w) for w in corpus.frequencies['all']]
+        lis = [ (cc[(w,cat)]**p, w) for w in corpus.frequencies['all']]
         lis.sort()
         vocab = vocab.union([w for _, w in lis[-M:]])
     
     return vocab
+
+def cc_based_overall(corpus, M=1000, read_from_file=False, xi_squared=False):
+    """This method builds a vocabulary by selecting M words form the overall corpus
+    vocabulary with the best "xi-square" index. Therefore the xi-squre index
+    is first calculated, or if so specified read from file.
+
+    """
+    p = 2 if xi_square else 1
+    
+    categories = corpus.cats
+    cc = calculate_cc_values(corpus, read_from_file)
+
+    # picking those M terms with the best xi-square values, which is just cc^2
+    lis = [ (cc[(w,cat)]**p, w) for w in corpus.frequencies['all'] for cat in categories.all_names()].sort()
+    
+    return set( [w for _, w in lis[-M:]] )
+
+def calculate_cc_values(corpus, read_from_file):
+    cc = {}
+    cat_freq = corpus.cats.frequencies
+    t_freq = corpus.frequencies["all"]
+    
+    # caluculating/reading the correlation coefficient (cc) index
+    if (not read_from_file):
+        
+        for w in corpus.frequencies['all']:
+            for cat in corpus.cats.all_names():
+                cc[(w, cat)] = 0
+                
+                if (cat_freq.freq(cat) <= 0) | (cat_freq.freq(cat) >= 1): continue
+                
+                a = ( corpus.frequencies[cat].freq(w) * cat_freq.freq(cat) )
+                b = ( ( 1 - t_freq.freq(w) ) - (1 - corpus.frequencies[cat].freq(w)) * cat_freq.freq(cat) ) / (1 - cat_freq.freq(cat))
+                c = 1 - b
+                d = 1 - a
+                e = t_freq.freq(w) * (1 - t_freq.freq(w)) * cat_freq.freq(cat) * (1 - cat_freq.freq(cat))
+                g = len(corpus.te_set)
+                
+                cc[(w, cat)] = np.sqrt(g)*(a*b - c*d) / np.sqrt(e)
+                
+        ## Saving into pickle files
+        cc_file = open('cc_values.pkl', 'wb+')
+        pickle.dump(xi_square, cc_file)
+    else:
+        ## Loading from pickle files
+        cc_file = open('cc_values.pkl', 'rb')
+        cc = pickle.load(cc_file)
+    
+    return cc
+
+
+
+
+
+
+
+
 
 def calculate_xi_sqaure_values(corpus, read_from_file):
     xi_square = {}
@@ -160,11 +226,3 @@ def calculate_xi_sqaure_values(corpus, read_from_file):
         xi_square = pickle.load(xi_square_file)
     
     return xi_square
-
-
-
-
-
-
-
-

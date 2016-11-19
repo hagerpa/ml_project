@@ -112,12 +112,12 @@ def calculate_ig_values(frequencies, cat_frequencies, categories, read_from_file
     
     
 def xi_square_based(corpus, M=100, read_from_file=False):
-    return cc_based(corpus, M=M, read_from_file=read_from_file, xi_squared=True)
+    return cc_based(corpus, M=M, read_from_file=read_from_file, xi_square=True)
 
 def xi_square_based_overall(corpus, M=1000, read_from_file=False):
-    return cc_based(corpus, M=M, read_from_file=read_from_file, xi_squared=True)
+    return cc_based(corpus, M=M, read_from_file=read_from_file, xi_square=True)
 
-def cc_based(corpus, M=100, read_from_file=False, xi_squared=False):
+def cc_based(corpus, M=100, read_from_file=False, xi_square=False):
     """This method builds a vocabulary by selecting M words form the overall corpus
     vocabulary with the best "correlation coefficient" index. Therefore the xi-squre index
     is first calculated, or if so specified read from file.
@@ -137,7 +137,7 @@ def cc_based(corpus, M=100, read_from_file=False, xi_squared=False):
     
     return vocab
 
-def cc_based_overall(corpus, M=1000, read_from_file=False, xi_squared=False):
+def cc_based_overall(corpus, M=1000, read_from_file=False, xi_square=False):
     """This method builds a vocabulary by selecting M words form the overall corpus
     vocabulary with the best "xi-square" index. Therefore the xi-squre index
     is first calculated, or if so specified read from file.
@@ -178,7 +178,7 @@ def calculate_cc_values(corpus, read_from_file):
                 
         ## Saving into pickle files
         cc_file = open('cc_values.pkl', 'wb+')
-        pickle.dump(xi_square, cc_file)
+        pickle.dump(cc, cc_file)
     else:
         ## Loading from pickle files
         cc_file = open('cc_values.pkl', 'rb')

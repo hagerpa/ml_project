@@ -36,7 +36,15 @@ def test(vocabulary_builder_name, vocabulary_builder, arguments, corpus, feature
         res_writer = csv_file_writer
     
     if csv_file_writer == None: # if this is a new file than write the header
-        res_writer.writerow(["vocabulary_builder", "comment", "arguments", "vocabulary_length", "tr_set_size", "te_set_size", "standard_accuracy", "uniform_accuracy"])
+        res_writer.writerow(["vocabulary_builder",
+                            "comment",
+                            "arguments",
+                            "term-space-dimension",
+                            "tr_set_size", 
+                            "te_set_size",
+                            "microavaraged_recall",
+                            "macroavaraged_recall",
+                            "macroavarged_precission"])
     
     for comment, args in arguments:
         print("{0} vocabulary builder, arguments {1}, {2}".format(vocabulary_builder_name, str(args), comment))
@@ -59,8 +67,9 @@ def test(vocabulary_builder_name, vocabulary_builder, arguments, corpus, feature
         
         labelset_te_set = set(indeed) # in case not all categories accured in the test set
         
-        st_accuracy = standard_accuracy(cm, labelset_te_set )
-        un_accuracy = uniform_accuracy(cm, labelset_te_set)
+        mic_recall = microavaraged_recall(cm, labelset_te_set )
+        mac_recall = macroavaraged_recall(cm, labelset_te_set)
+        mac_prec = macroavaraged_precision(cm, labelset_te_set)
         
         res_writer.writerow([vocabulary_builder_name,
                             comment,
@@ -68,40 +77,57 @@ def test(vocabulary_builder_name, vocabulary_builder, arguments, corpus, feature
                             len(vocabulary),
                             len(tr_set),
                             len(te_set),
-                            st_accuracy,
-                            un_accuracy
+                            mic_recall,
+                            mac_recall,
+                            mac_prec
                         ])
-    
-        labels_te_set = set(indeed)
-        print(" --- standart accurcy:", standard_accuracy(cm, labels_te_set))
-        print(" --- uniform accuracy:", uniform_accuracy(cm, labels_te_set))
-
+        
+        print(" --- microavaraged recall:", mic_recall)
+        print(" --- macroavaraged recall:", mac_recall)
+        print(" --- macroavaraged precision:", mac_prec)
         print("")
 
     if csv_file_writer == None:
         res_file.close()
     
-    print("\n test are all finshed and saved into file!")
+    print("Tests are all finshed and saved into file!")
     #print(cm.pretty_format(sort_by_count=True, show_percents=True, truncate=12))
 
+def macroavaraged_recall(cm, categories):
+    """This method returns the macroavarged recall."""
+    mac_recall = 0
+    for cat in categories:
+        # counting all examples that where provided for this category in the test-set
+        total_examples = sum([cm.__getitem__((cat, cat_)) for cat_ in categories])
+        # couting True-Positives and divide by the number of all examples in this category
+        accuracy = cm.__getitem__((cat, cat)) / total_examples
+        # adding up the "local"-recalls
+        mac_recall += accuracy
+    return mac_recall / len(categories)
+    
+def macroavaraged_precision(cm, categories):
+        """This method returns the macroavarged precission."""
+        mac_prec = 0
+        for cat in categories:
+            # counting all the examples that where assigned to this category (TP + FP)
+            total_examples = sum([cm.__getitem__((cat_, cat)) for cat_ in categories])
+            # couting True-Positives and divide by the number of all examples in this category
+            accuracy = cm.__getitem__((cat, cat)) / total_examples
+            # adding up the "local"-recalls
+            mac_prec += accuracy
+        return mac_prec / len(categories)
+
+def microavaraged_recall(cm, categories):
+    """This method returns the microavarage recall."""
+    true_positives = 0
+    all_examples = 0
+    for cat in categories:
+        all_examples += sum([cm.__getitem__((cat, cat_)) for cat_ in categories])
+        true_positives += cm.__getitem__((cat, cat))
+    return true_positives/all_examples
+    
 def print_accuracy_list(cm, categories):
     for cat in categories:
         total_examples = sum([cm.__getitem__((cat, cat_)) for cat_ in categories])
         accuracy = cm.__getitem__((cat, cat)) / total_examples
         print("accuracy within category {0:23}: {1:2.2}".format(cat,accuracy))
-
-def uniform_accuracy(cm, categories):
-    uni_accuracy = 0
-    for cat in categories:
-        total_examples = sum([cm.__getitem__((cat, cat_)) for cat_ in categories])
-        accuracy = cm.__getitem__((cat, cat)) / total_examples
-        uni_accuracy += accuracy
-    return uni_accuracy / len(categories)
-
-def standard_accuracy(cm, categories):
-    right_examples = 0
-    all_examples = 0
-    for cat in categories:
-        all_examples += sum([cm.__getitem__((cat, cat_)) for cat_ in categories])
-        right_examples += cm.__getitem__((cat, cat))
-    return right_examples/all_examples

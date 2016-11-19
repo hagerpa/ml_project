@@ -107,10 +107,12 @@ def macroavaraged_recall(cm, categories):
     
 def macroavaraged_precision(cm, categories):
         """This method returns the macroavarged precission."""
+        if len(categories) == 0: return 0
         mac_prec = 0
         for cat in categories:
             # counting all the examples that where assigned to this category (TP + FP)
             total_examples = sum([cm.__getitem__((cat_, cat)) for cat_ in categories])
+            if total_examples == 0: continue
             # couting True-Positives and divide by the number of all examples in this category
             accuracy = cm.__getitem__((cat, cat)) / total_examples
             # adding up the "local"-recalls

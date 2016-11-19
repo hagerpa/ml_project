@@ -149,7 +149,8 @@ def cc_based_overall(corpus, M=1000, read_from_file=False, xi_square=False):
     cc = calculate_cc_values(corpus, read_from_file)
 
     # picking those M terms with the best xi-square values, which is just cc^2
-    lis = [ (cc[(w,cat)]**p, w) for w in corpus.frequencies['all'] for cat in categories.all_names()].sort()
+    lis = [ (cc[(w,cat)]**p, w) for w in corpus.frequencies['all'] for cat in categories.all_names() ]
+    lis.sort()
     
     return set( [w for _, w in lis[-M:]] )
 

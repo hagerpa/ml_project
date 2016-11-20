@@ -1,6 +1,7 @@
 import csv
 import re
 import nltk
+from tempfile import TemporaryFile
 
 class categories:
     """A object of this class keeps track of all the categories in the classification task.
@@ -39,15 +40,16 @@ class categories:
                 print("replaced expression {0} by expression {1} - {2} times.".format(find,replace,n))
     
         # saving into a new CSV file called: category_clean.csv
-        file_clean = open('category_clean.csv', 'w+', encoding="utf8")
+        #file_clean = open('category_clean.csv', 'w+', encoding="utf8")
+        file_clean = TemporaryFile("w+")
         file_clean.write(file_content)
-        file_clean.close()
+        file_clean.seek(0)
         
         # return the already opend new category_clean.csv file and a CSV reader on that file
-        file = open('category_clean.csv', 'r')
-        reader = csv.reader(file)
-        self.cats, self.subcats = makedict(file, reader)
-        file.close()
+        #file = open('category_clean.csv', 'r')
+        reader = csv.reader(file_clean)
+        self.cats, self.subcats = makedict(file_clean, reader)
+        file_clean.close()
     
     def __str__(self):
         # Prints all categories with subcategories intendet after perent category

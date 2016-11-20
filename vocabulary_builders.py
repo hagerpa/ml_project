@@ -14,7 +14,6 @@ from the entier corpus
 """
 
 import itertools
-import progressbar
 import pickle
 import numpy as np
 

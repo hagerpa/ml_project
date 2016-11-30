@@ -19,7 +19,7 @@ def extract_features(qfile="question_train.csv", qcatfile="question_category_tra
     # saving corpus into pickle
     # pickle.dump(corp, "corpus.pkl")
     # selecting the term-space
-    term_space = ig_based_non_uniform(corp, M=2500, read_from_file=True)
+    term_space = ig_based_non_uniform(corp, M=2500, read_from_file=False)
     d = len(term_space)
     # create mapping form features names to new ids and inverse
     term_to_feature = {}

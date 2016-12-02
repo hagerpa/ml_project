@@ -1,4 +1,0 @@
-vocabulary_builder,comment,arguments,vocabulary_length,tr_set_size,te_set_size,standard_accuracy,uniform_accuracy
-xi-square,small test,{'M': 200},280,1000,100,0.4,0.3216646915176327
-xi-square,small test,"{'read_from_file': True, 'M': 300}",448,1000,100,0.41,0.3509507649213532
-xi-square,small test,"{'read_from_file': True, 'M': 400}",554,1000,100,0.4,0.3231729871435754

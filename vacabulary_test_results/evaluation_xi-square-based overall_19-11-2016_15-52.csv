@@ -1,4 +1,0 @@
-vocabulary_builder,comment,arguments,vocabulary_length,tr_set_size,te_set_size,standard_accuracy,uniform_accuracy
-xi-square-based overall,,"{'read_from_file': True, 'M': 1}",1,10000,4417,0.2626216889291374,0.12452472345484078
-xi-square-based overall,,"{'read_from_file': True, 'M': 250}",377,10000,4417,0.5123386914195155,0.39843033557367596
-xi-square-based overall,,"{'read_from_file': True, 'M': 500}",739,10000,4417,0.5336201041430836,0.4207501493645115

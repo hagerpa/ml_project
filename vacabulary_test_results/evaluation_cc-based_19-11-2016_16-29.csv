@@ -1,9 +1,0 @@
-vocabulary_builder,comment,arguments,vocabulary_length,tr_set_size,te_set_size,standard_accuracy,uniform_accuracy
-cc-based,,{'M': 1},14,10000,4417,0.30609010640706363,0.16956150534120212
-cc-based,,"{'read_from_file': True, 'M': 50}",700,10000,4417,0.47249264206474983,0.34222069589805343
-cc-based,,"{'read_from_file': True, 'M': 100}",1400,10000,4417,0.48947249264206477,0.3438419834544794
-cc-based,,"{'read_from_file': True, 'M': 200}",2800,10000,4417,0.4808693683495585,0.31739551350622114
-cc-based,,"{'read_from_file': True, 'M': 300}",4090,10000,4417,0.46570070183382384,0.2903853336189847
-cc-based,,"{'read_from_file': True, 'M': 400}",5172,10000,4417,0.45438080144894727,0.2740252432898895
-cc-based,,"{'read_from_file': True, 'M': 500}",6234,10000,4417,0.45075843332578674,0.26670155199572576
-cc-based,,"{'read_from_file': True, 'M': 600}",7158,10000,4417,0.43966493094860765,0.25409479331458

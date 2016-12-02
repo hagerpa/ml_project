@@ -1,9 +1,0 @@
-vocabulary_builder,comment,arguments,term-space-dimension,tr_set_size,te_set_size,microavaraged_recall,macroavaraged_recall,macroavarged_precission
-ig-based-non-uniform,,"{'read_from_file': True, 'M': 1}",9,10000,4417,0.32171156893819336,0.19978933297089332,0.43176219502878377
-ig-based-non-uniform,,"{'read_from_file': True, 'M': 500}",306,10000,4417,0.5254697758659724,0.41579835224240175,0.5669942033044096
-ig-based-non-uniform,,"{'read_from_file': True, 'M': 1000}",608,10000,4417,0.5456191985510528,0.432335237940707,0.550334225692792
-ig-based-non-uniform,,"{'read_from_file': True, 'M': 2000}",1233,10000,4417,0.5601086710436948,0.4428104566836179,0.5710006825599544
-ig-based-non-uniform,,"{'read_from_file': True, 'M': 3000}",1926,10000,4417,0.5594294770206022,0.4328982346035128,0.5616223535172059
-ig-based-non-uniform,,"{'read_from_file': True, 'M': 4000}",2430,10000,4417,0.5625990491283677,0.4300795094141559,0.5639480256791257
-ig-based-non-uniform,,"{'read_from_file': True, 'M': 5000}",3033,10000,4417,0.5607878650667875,0.42104127756471144,0.5781264275801946
-ig-based-non-uniform,,"{'read_from_file': True, 'M': 8000}",5777,10000,4417,0.5331673081276884,0.36410549661073766,0.6258451727507035

@@ -1,2 +1,0 @@
-vocabulary_builder,comment,arguments,vocabulary_length,tr_set_size,te_set_size,standard_accuracy,uniform_accuracy
-cc-based overall,,{'M': 1},1,10000,4417,0.26760244509848313,0.12375646206987148

@@ -1,0 +1,4 @@
+vocabulary_type,vocabulary_length,tr_set_size,te_set_size,standard_accuracy,uniform_accuracy
+ig_based,1217,1000,500,0.41,0.2652371919599672
+most_common,1068,1000,500,0.408,0.25470672932037436
+most_common_reduced,1023,1000,500,0.408,0.25470672932037436

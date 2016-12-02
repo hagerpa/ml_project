@@ -9,14 +9,15 @@ class corpus:
         self.file_loaded = False
         self.processed = False
         self.cats = categories
-        
         self.frequencies = {}
+        self.applied_word_filers = []
+        self.applied_sentence_filers = []
         
     def load(self, filename_questions, filename_categories):
         ### Reding category assignments ###
         qcatfile = open(filename_categories, 'r')
         qcatreader = csv.reader(qcatfile)
-
+        
         next(qcatreader) # skipping column discription
 
         qid_to_catid = {} # mapping from question_id to the parent category_id
@@ -46,8 +47,7 @@ class corpus:
             if int(row[0]) in qid_to_catid.keys(): # checking whether the question was actually assigned to a category
                 cat_id = int(row[0])
                 sentence = row[4].lower()
-                questions += [{"sentence":sentence,
-                                "category": self.cats.name( qid_to_catid[cat_id] )}]
+                questions += [{"sentence":sentence, "category": self.cats.name( qid_to_catid[cat_id] )}]
         
         ### Saving into pickle files ###
         q_file = open('questions.pkl', 'wb+')
@@ -61,12 +61,13 @@ class corpus:
             # we are running filters on already filtered sentences
             raw_questions = self.tr_set + self.te_set
         else:
+            if(not self.file_loaded):
+                raise.Exception("Processing question befor loading them from file is not possible.")
             ## Loading raw questions from pickle file
             q_file = open('questions.pkl', 'rb')
             raw_questions = pickle.load(q_file)
         
         questions = []
-        
         for q in raw_questions:
             # if we are not reprocessing: sentences might be first filtered and then tokenized
             if not reprocessing:
@@ -104,16 +105,6 @@ class corpus:
             self.frequencies["all"] += nltk.FreqDist( q["words"] )
         
         self.processed = True
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
         
         
         

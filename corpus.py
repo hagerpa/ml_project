@@ -56,7 +56,7 @@ class corpus:
         
         self.file_loaded = True
     
-    def process(self, sentence_filters, word_filters, tr_set_size=None, te_set_size=None, reprocessing=False):
+    def process(self, sentence_filters, word_filters, tr_set_size=-1, te_set_size=0, reprocessing=False):
         if reprocessing:
             # we are running filters on already filtered sentences
             raw_questions = self.tr_set + self.te_set
@@ -91,14 +91,8 @@ class corpus:
         self.frequencies = {cat_name: nltk.FreqDist() for cat_name in self.cats.all_names()}
         self.frequencies["all"] = nltk.FreqDist()
         
-        if tr_set_size==None:
-            self.tr_set = questions
-        elif te_set_size==None:
-            self.tr_set = questions[:tr_set_size]
-            self.te_set = questions[tr_set_size:] # if test set size is not specified take the rest
-        else:
-            self.tr_set = questions[:tr_set_size]
-            self.te_set = questions[tr_set_size: tr_set_size + te_set_size]
+        self.tr_set = questions[:tr_set_size]
+        self.te_set = questions[-tr_set_size:]
         
         for q in self.tr_set: # Now we count the frequencies, but only for words in the training set
             self.frequencies[ q["category"] ] += nltk.FreqDist( q["words"] )
@@ -107,5 +101,22 @@ class corpus:
         self.processed = True
         
         
+        n_of_terms, n_of_cats = len(self.frequencies['all']), len(self.cats.all_names)
+        self.index_to_term, self.term_to_index = {}, {}
+        self.index_to_cat, self.cat_to_index = {}, {}
+        self.freqMatrix = np.zeros(n_of_terms, n_of_cats)
+        self.freqVecTerms = np.zeros(n_of_terms)
+        self.freqVecCats = np.zeros(n_of_cats)
         
+        for c_index, cat in zip(range(n_of_cats), self.cats.all_names()):
+            self.index_to_cat[index] = cat
+            self.cat_to_index[cat] = index
+            self.freqVecCats[index] = self.cats.frequencies[cat]
         
+        for t_index, term in zip(range(n_of_terms), self.frequencies['all']):
+            self.index_to_term[t_index] = term
+            self.term_to_index[term] = t_index
+            
+            self.freqMatrix[t_index, :] = [ frequencies[ index_to_cat[c_index] ].freq(term) for c_index in range(n_of_cats) ]
+            self.freqVecTerms = self.frequencies['all'].freq(term)
+            

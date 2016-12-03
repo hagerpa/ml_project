@@ -68,48 +68,26 @@ def ig_based_non_uniform(corpus, M=1000, read_from_file=False):
     """This method builds a vocabulary by selecting M words form the overall corpus
     vocabulary with the best "information-gain" index. Therefore the information gain index
     is first calculated, or if so specified read from file.
-    
     """
-    categories = corpus.cats
-    information_gain = calculate_ig_values(corpus.frequencies, categories.frequencies, categories, read_from_file)
     
-    # picking those M terms with the best ig-index
-    vocab = set()
-    for cat in categories.all_names():
-        lis = [(information_gain[(w,cat)], w) for w in corpus.frequencies['all']]
-        lis.sort()
-        m = int(corpus.cats.frequencies.freq(cat) * M)
-        if m == 0: m = 1
-        vocab = vocab.union([w for _, w in lis[-m:]])
+    ig = calculate_ig_values(corpus)
+    
+    best_term_ids = np.argsort( np.sort(-ig, axis=1)[:,0] )[:M]
+    corpus.index_to_term[ best_term_ids ]
     
     return vocab
 
-def calculate_ig_values(frequencies, cat_frequencies, categories, read_from_file):
-    information_gain = {}
-    # caluculating/reading the information-gain index
-    if (not read_from_file):
-        
-        for w in frequencies['all']:
-            for cat in categories.all_names():
-                information_gain[(w, cat)] = 0
-                
-                if frequencies[cat].freq(w) > 0:
-                    information_gain[(w, cat)] = frequencies[cat].freq(w) * cat_frequencies.freq(cat) \
-                                            * np.log( frequencies[cat].freq(w) / frequencies['all'].freq(w) )
-                if frequencies[cat].freq(w) < 1:
-                    information_gain[(w, cat)] += (1 - frequencies[cat].freq(w)) * cat_frequencies.freq(cat) \
-                                            * np.log( (1 - frequencies[cat].freq(w)) / (1 -frequencies['all'].freq(w)) )
-        ## Saving into pickle files
-        ig_file = open('information_gain.pkl', 'wb+')
-        pickle.dump(information_gain, ig_file)
+def calculate_ig_values(corpus):
+    """This method calculates the information gain all terms in the training set of a given corpus.
+    It returns a numpy arry with ig-entries as term x category."""
+    if read_from_file:
+        return np.load("information_gain.npy")
     else:
-        ## Loading from pickle files
-        ig_file = open('information_gain.pkl', 'rb')
-        information_gain = pickle.load(ig_file)
-    
-    return information_gain
-    
-    
+        X, t, c = corpus.freqMatrix, corpus.freqVecTerms, corpus.freqVecCats
+        ig = np.log( X / np.outer(t,c) ) * X
+        ig += np.log( X / np.outer( (1-t), c ) ) * X
+        np.save("information_gain", ig=ig)
+
 def xi_square_based(corpus, M=100, read_from_file=False):
     return cc_based(corpus, M=M, read_from_file=read_from_file, xi_square=True)
 
@@ -185,14 +163,6 @@ def calculate_cc_values(corpus, read_from_file):
         cc = pickle.load(cc_file)
     
     return cc
-
-
-
-
-
-
-
-
 
 def calculate_xi_sqaure_values(corpus, read_from_file):
     xi_square = {}

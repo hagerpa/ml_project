@@ -50,43 +50,36 @@ def ig_based(corpus, M=100, read_from_file=False):
     """This method builds a vocabulary by selecting M words form the overall corpus
     vocabulary with the best "information-gain" index. Therefore the information gain index
     is first calculated, or if so specified read from file.
-    
     """
-    categories = corpus.cats
-    information_gain = calculate_ig_values(corpus.frequencies, categories.frequencies, categories, read_from_file)
-    
-    # picking those M terms with the best ig-index
-    vocab = set()
-    for cat in categories.all_names():
-        lis = [(information_gain[(w,cat)], w) for w in corpus.frequencies['all']]
-        lis.sort()
-        vocab = vocab.union([w for _, w in lis[-M:]])
-    
+    ig = calculate_ig_values(corpus, read_from_file)
+    best_term_ids = (np.argsort(-ig, axis=0)[:M,:]).flatten()
+    vocab = set(corpus.id_to_term[ best_term_ids ])
     return vocab
 
 def ig_based_non_uniform(corpus, M=1000, read_from_file=False):
-    """This method builds a vocabulary by selecting M words form the overall corpus
-    vocabulary with the best "information-gain" index. Therefore the information gain index
-    is first calculated, or if so specified read from file.
     """
-    
-    ig = calculate_ig_values(corpus)
-    
+    This method builds a vocabulary by selecting M words form the term-space of the corpus
+    with the best "information-gain" values. Therefore the information gain index
+    is first calculated, or if specified so, read from file.
+    """
+    ig = calculate_ig_values(corpus, read_from_file)
     best_term_ids = np.argsort( np.sort(-ig, axis=1)[:,0] )[:M]
-    corpus.index_to_term[ best_term_ids ]
-    
+    vocab = set(corpus.id_to_term[ best_term_ids ])
     return vocab
 
-def calculate_ig_values(corpus):
-    """This method calculates the information gain all terms in the training set of a given corpus.
-    It returns a numpy arry with ig-entries as term x category."""
+def calculate_ig_values(corpus, read_from_file):
+    """
+    This method calculates the information gain all terms in the training set of a given corpus.
+    It returns a numpy arry with ig-entries as term x category.
+    """
     if read_from_file:
         return np.load("information_gain.npy")
     else:
         X, t, c = corpus.freqMatrix, corpus.freqVecTerms, corpus.freqVecCats
-        ig = np.log( X / np.outer(t,c) ) * X
-        ig += np.log( X / np.outer( (1-t), c ) ) * X
-        np.save("information_gain", ig=ig)
+        ig = np.log( ((X.T / t).T)**(X*c) )
+        ig += np.log( ( ((1-X).T / (1-t)).T)**(c - X*c) )
+        np.save("information_gain",ig)
+        return ig
 
 def xi_square_based(corpus, M=100, read_from_file=False):
     return cc_based(corpus, M=M, read_from_file=read_from_file, xi_square=True)

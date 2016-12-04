@@ -3,6 +3,7 @@ import csv
 import nltk
 from nltk import word_tokenize
 import pickle
+import time
 
 class corpus:
     def __init__(self, categories):
@@ -56,16 +57,18 @@ class corpus:
         
         self.file_loaded = True
     
-    def process(self, sentence_filters, word_filters, tr_set_size=-1, te_set_size=0, reprocessing=False):
+    def process(self, sentence_filters, word_filters, tr_set_size=-1, te_set_size=1, reprocessing=False):
         if reprocessing:
             # we are running filters on already filtered sentences
             raw_questions = self.tr_set + self.te_set
         else:
             if(not self.file_loaded):
-                raise.Exception("Processing question befor loading them from file is not possible.")
+                raise Exception("Processing question befor loading them from file is not possible.")
             ## Loading raw questions from pickle file
             q_file = open('questions.pkl', 'rb')
             raw_questions = pickle.load(q_file)
+        
+        t = time.time()
         
         questions = []
         for q in raw_questions:
@@ -85,6 +88,9 @@ class corpus:
             
             questions += [{"words": words, "category": q["category"]}]
         
+        print("processing", time.time() - t)
+        t = time.time()
+        
         if not reprocessing:
             np.random.shuffle(questions)
         
@@ -92,7 +98,7 @@ class corpus:
         self.frequencies["all"] = nltk.FreqDist()
         
         self.tr_set = questions[:tr_set_size]
-        self.te_set = questions[-tr_set_size:]
+        self.te_set = questions[tr_set_size:-te_set_size]
         
         for q in self.tr_set: # Now we count the frequencies, but only for words in the training set
             self.frequencies[ q["category"] ] += nltk.FreqDist( q["words"] )
@@ -100,23 +106,19 @@ class corpus:
         
         self.processed = True
         
+        print("frequencies", time.time() - t)
+        t = time.time()
         
-        n_of_terms, n_of_cats = len(self.frequencies['all']), len(self.cats.all_names)
-        self.index_to_term, self.term_to_index = {}, {}
-        self.index_to_cat, self.cat_to_index = {}, {}
-        self.freqMatrix = np.zeros(n_of_terms, n_of_cats)
-        self.freqVecTerms = np.zeros(n_of_terms)
-        self.freqVecCats = np.zeros(n_of_cats)
+        id_to_term = np.array( list( self.frequencies['all'] ) )
+        id_to_cat = np.array( self.cats.all_names() )
         
-        for c_index, cat in zip(range(n_of_cats), self.cats.all_names()):
-            self.index_to_cat[index] = cat
-            self.cat_to_index[cat] = index
-            self.freqVecCats[index] = self.cats.frequencies[cat]
+        self.freqVecTerms = np.array([ self.frequencies['all'].freq(term) for term in id_to_term ])
+        self.freqVecCats = np.array([ self.cats.frequencies.freq(cat) for cat in id_to_cat ])
+        self.freqMatrix = np.array( [ [self.frequencies[c].freq(t) for c in id_to_cat] for t in id_to_term] )
         
-        for t_index, term in zip(range(n_of_terms), self.frequencies['all']):
-            self.index_to_term[t_index] = term
-            self.term_to_index[term] = t_index
-            
-            self.freqMatrix[t_index, :] = [ frequencies[ index_to_cat[c_index] ].freq(term) for c_index in range(n_of_cats) ]
-            self.freqVecTerms = self.frequencies['all'].freq(term)
-            
+        self.id_to_term, self.id_to_cat = id_to_term, id_to_cat
+        
+        print("matricies", time.time() - t)
+        t = time.time()
+        
+        

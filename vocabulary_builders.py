@@ -56,7 +56,7 @@ def ig_based(corpus, M=100, read_from_file=False):
     vocab = set(corpus.id_to_term[ best_term_ids ])
     return vocab
 
-def ig_based_non_uniform(corpus, M=1000, read_from_file=False):
+def ig_based_non_uniform(corpus, M=1000, read_from_file=False, out="array"):
     """
     This method builds a vocabulary by selecting M words form the term-space of the corpus
     with the best "information-gain" values. Therefore the information gain index
@@ -64,8 +64,11 @@ def ig_based_non_uniform(corpus, M=1000, read_from_file=False):
     """
     ig = calculate_ig_values(corpus, read_from_file)
     best_term_ids = np.argsort( np.sort(-ig, axis=1)[:,0] )[:M]
-    vocab = set(corpus.id_to_term[ best_term_ids ])
-    return vocab
+    
+    if(out == "array"):
+        return corpus.id_to_term[ best_term_ids ]
+    elif(out == "set"):
+        return set(corpus.id_to_term[ best_term_ids ])
 
 def calculate_ig_values(corpus, read_from_file):
     """

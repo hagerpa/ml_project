@@ -5,14 +5,18 @@ from nltk import word_tokenize
 import pickle
 import time
 
+def load_from_file():
+    with open("corpus.pkl", "rb") as f:
+        return pickle.load(f)
+
 class corpus:
     def __init__(self, categories):
         self.file_loaded = False
         self.processed = False
         self.cats = categories
         self.frequencies = {}
-        self.applied_word_filers = []
-        self.applied_sentence_filers = []
+        self.word_filters = []
+        self.sentence_filters = []
         
     def load(self, filename_questions, filename_categories):
         ### Reding category assignments ###
@@ -56,8 +60,10 @@ class corpus:
         q_file.close()
         
         self.file_loaded = True
-    
-    def process(self, sentence_filters, word_filters, tr_set_size=-1, te_set_size=1, reprocessing=False):
+        
+        return self
+        
+    def process(self, sentence_filters, word_filters, tr_set_size=-1, te_set_size=-1, reprocessing=False):
         if reprocessing:
             # we are running filters on already filtered sentences
             raw_questions = self.tr_set + self.te_set
@@ -68,7 +74,10 @@ class corpus:
             q_file = open('questions.pkl', 'rb')
             raw_questions = pickle.load(q_file)
         
-        t = time.time()
+        if tr_set_size == 0: raise ValueError("training set size cant be zero.")
+        elif tr_set_size < 0: pass
+        elif te_set_size < 0: pass
+        else: raw_questions = raw_questions[:tr_set_size] + raw_questions[tr_set_size:tr_set_size + te_set_size]
         
         questions = []
         for q in raw_questions:
@@ -87,27 +96,24 @@ class corpus:
                 words = filt(words)
             
             questions += [{"words": words, "category": q["category"]}]
-        
-        print("processing", time.time() - t)
-        t = time.time()
-        
+            
         if not reprocessing:
             np.random.shuffle(questions)
+        
+        self.sentence_filters = self.sentence_filters + sentence_filters
+        self.word_filters = self.word_filters + word_filters
         
         self.frequencies = {cat_name: nltk.FreqDist() for cat_name in self.cats.all_names()}
         self.frequencies["all"] = nltk.FreqDist()
         
         self.tr_set = questions[:tr_set_size]
-        self.te_set = questions[tr_set_size:-te_set_size]
+        self.te_set = questions[tr_set_size:]
         
         for q in self.tr_set: # Now we count the frequencies, but only for words in the training set
             self.frequencies[ q["category"] ] += nltk.FreqDist( q["words"] )
             self.frequencies["all"] += nltk.FreqDist( q["words"] )
         
         self.processed = True
-        
-        print("frequencies", time.time() - t)
-        t = time.time()
         
         id_to_term = np.array( list( self.frequencies['all'] ) )
         id_to_cat = np.array( self.cats.all_names() )
@@ -118,7 +124,36 @@ class corpus:
         
         self.id_to_term, self.id_to_cat = id_to_term, id_to_cat
         
-        print("matricies", time.time() - t)
-        t = time.time()
+        return self
         
+    def make_features(self, term_space):
+        """
+        Recieves the (reduced) term-space as an np.array and returns a
+        feature matrix vor the training set.
+        """
+        self.term_space = term_space
         
+        self.X_tr = np.array([ [(t in q['words']) for q in self.tr_set] for t in term_space ])
+        self.y_tr = np.array([ self.cats.internal_id( q["category"] ) for q in self.tr_set])
+        
+        self.X_te = np.array([ [(t in q['words']) for q in self.te_set] for t in term_space ])
+        self.y_te = np.array([ self.cats.internal_id( q["category"] ) for q in self.te_set])
+        return self
+    
+    def save(self):
+        with open("corpus.pkl", "wb+") as f:
+            pickle.dump(self, f)
+    
+    def process_example(self, raw_questions):
+        X = np.zeros((len(self.term_space), len(raw_questions)))
+        for q, i in zip(raw_questions, range(len(raw_questions))):
+            sentence = q.lower()
+            for filt in self.sentence_filters:
+                sentence = filt(sentence)
+            
+            words = word_tokenize(sentence)
+            for filt in self.word_filters:
+                words = filt(words)
+            print(words)
+            X[:,i] = np.array( [ (t in words) for t in self.term_space ] )
+        return X

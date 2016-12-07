@@ -2,6 +2,7 @@ import csv
 import re
 import nltk
 from tempfile import TemporaryFile
+import numpy as np
 
 class categories:
     """A object of this class keeps track of all the categories in the classification task.
@@ -17,39 +18,33 @@ class categories:
         self.subcats = {}
         self.loadfromfile()
         self.frequencies = nltk.FreqDist()
+        self.internal_id_to_name
+        self.internal_name_to_id
     
     def loadfromfile(self, print_changes=False):
-        # opening original csv file
-        file = open('category.csv', 'r')
-        file.seek(0)
-        file_content = file.read()
-        file.close()
-    
-        # list of regular expressions that should be subtituted prior to read via CSV-reader
-        # by removing these exprecions, e.g. <span style=.....</span> a frictionless read is assured.
+        with open('category.csv', 'r') as file:
+            file_content = file.read()
+        
         regexps = [(r"\\\"", "'"), 
                    (re.compile(r"<span.*?/span>", re.DOTALL), ""),
                    (r"<p.*?>", ""),
                    (r"</p>", "")]
-    
-        # find an replace for each of the expressions in upper list
-        for regex in regexps:
-            find, replace = regex # f: the tobe Found expression, r: the expression which sill substitute
+        
+        for find, replace in regexps:
             file_content, n = re.subn(find, replace, file_content)
             if print_changes:
                 print("replaced expression {0} by expression {1} - {2} times.".format(find,replace,n))
-    
-        # saving into a new CSV file called: category_clean.csv
-        #file_clean = open('category_clean.csv', 'w+', encoding="utf8")
-        file_clean = TemporaryFile("w+")
-        file_clean.write(file_content)
-        file_clean.seek(0)
         
-        # return the already opend new category_clean.csv file and a CSV reader on that file
-        #file = open('category_clean.csv', 'r')
-        reader = csv.reader(file_clean)
-        self.cats, self.subcats = makedict(file_clean, reader)
-        file_clean.close()
+        with TemporaryFile("w+") as file_clean:
+            file_clean = TemporaryFile("w+")
+            file_clean.write(file_content)
+            file_clean.seek(0)
+            
+            reader = csv.reader(file_clean)
+            self.cats, self.subcats = makedict(file_clean, reader)
+        
+        self.internal_id_to_name = np.array(self.all_names())
+        self.internal_name_to_id = { self.internal_id_to_name[i]: i for i in range(len(self)) }
     
     def __str__(self):
         # Prints all categories with subcategories intendet after perent category
@@ -60,6 +55,9 @@ class categories:
                 out += "\t" + str(subcat[0]) + " " + str(subcat[1]) + "\n"
             out += "\n"
         return out
+    
+    def __len__(self):
+        return len(self.cats)
     
     def name(self, id_):
         """This method returns the feature name of the category for a given id.
@@ -74,6 +72,7 @@ class categories:
             return self.name(self.subcats[id_])
         else:
             raise ValueError("There is no category with the id", id_)
+        
     
     def all_names(self):
         return [n[0] for n in self.cats.values()]
@@ -83,8 +82,17 @@ class categories:
             return self.subcats[id_]
         else:
             raise ValueError("There is no category with the id", id_)
-
-
+    
+    def internal_id(self, name):
+        """
+        This method returns for a given category name, the new id created while
+        loading in the categories. Note that this id doesnt correspond to the
+        id given in the database, but is a new id thats fixed in in this category
+        object.
+        """
+        return self.internal_name_to_id[name]
+        
+        
 def makedict(catfile, catreader):
     # Method that creats a dict which has the parent category id as keys, and as values it hast a Tuple
     # consisting of 1. the name of the parent category, 2. a dictionarry with subcategorys

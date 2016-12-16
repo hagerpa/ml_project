@@ -47,14 +47,17 @@ def ig_based(corpus, M=100, read_from_file=False):
     """
     ig = calculate_ig_values(corpus, read_from_file)
     best_term_ids = (np.argsort(-ig, axis=0)[:M,:]).flatten()
-    return corpus.id_to_term[ best_term_ids ]
+    return corpus.all_terms[ best_term_ids ]
 
 def ig_based_non_uniform(corpus, M=1000, read_from_file=False):
     """ This method selects a vocabulary by choosing M words form the term-space of the training set
     with the best "information-gain" values. """
+    if M > len(corpus.all_terms):
+        M = len(corpus.all_terms)
+        raise Warning("M was greater then available terms.")
     ig = calculate_ig_values(corpus, read_from_file)
     best_term_ids = np.argsort( np.sort(-ig, axis=1)[:,0] )[:M]
-    return corpus.id_to_term[ best_term_ids ]
+    return corpus.all_terms[ best_term_ids ]
 
 def calculate_ig_values(corpus, read_from_file):
     """ This method calculates the information gain for all terms in the training set of a given corpus.

@@ -6,7 +6,8 @@ methods cotain an option parameter which dicriminates between 'featuering' the t
 set or the test set. """
 
 import numpy as np
-    
+from sklearn.preprocessing import normalize 
+
 def general_model(documents, term_space, feat):
     if type(documents[0]) == dict:
         if 'words' in documents[0].keys():
@@ -40,9 +41,7 @@ def tfidf(documents, term_space, *args):
     Y = multinomial_model(documents, term_space).T
     if len(args) > 0:
         Y = Y * args[0]
-        X = Y.T
-        norm = np.linalg.norm(Y, axis=1) # normalizing where norm isn't zero.
-        X[:,norm>0] = Y[norm>0,:].T / norm[norm>0]
+        X = normalize(Y, norm='l2', axis=1).T
         return X
     if len(args) == 0:
         weights = np.log( len(documents) / np.sum(Y>0, axis=0) )

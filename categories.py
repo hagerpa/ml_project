@@ -84,24 +84,28 @@ class categories:
             raise ValueError("There is no category with the id", id_)
     
     def internal_id(self, name):
-        """
-        This method returns for a given category name, the new id created while
+        """ This method returns for a given category name, the new id created while
         loading in the categories. Note that this id doesnt correspond to the
-        id given in the database, but is a new id thats fixed in in this category
-        object.
-        """
+        id given in the database. """
         return self.internal_name_to_id[name]
+    
+    def __getitem__(self, ref):
+        if type(ref) == int:
+            if ref > len(self): raise ValueError("index out of bounds.")
+            return self.internal_id_to_name[ref]
+        if type(ref) == str:
+            if len(ref) <= 2:
+                if int(ref) in self.subcats:
+                    return self[self.name(int(ref))]
+            if ref in self.internal_name_to_id:
+                return self.internal_name_to_id[ref]
+            else:
+                raise ValueError("no such category.")
         
         
-def makedict(catfile, catreader):
-    # Method that creats a dict which has the parent category id as keys, and as values it hast a Tuple
-    # consisting of 1. the name of the parent category, 2. a dictionarry with subcategorys
-    # these are of the form (key:category_id, value:categoryname)
+def initialize(catfile, catreader):
     catfile.seek(0)
-
-    #skipping column discription:
     next(catreader)
-
     category_dict = {} # Dictionary which has as key: category_id, ...
     #..- and as values: (category_feature_name, dictionary of subcategories, category_name)
 
@@ -110,11 +114,12 @@ def makedict(catfile, catreader):
 
     for row in catreader:
         if int(row[1]) == 0:
+            
             category_dict[int(row[0])] = [make_feature_name(row[2]), {}, row[2]]
             subcat[int(row[0])] = int(row[0])
         else:
             subcat[int(row[0])] = int(row[1])
-        
+    
     catfile.seek(0)
     next(catreader)
 

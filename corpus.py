@@ -3,7 +3,7 @@ import csv
 import nltk
 from nltk import word_tokenize
 import pickle
-import time
+from feature_extractors import bernoulli_model
 
 def load_from_file():
     with open("corpus.pkl", "rb") as f:
@@ -17,12 +17,12 @@ class corpus:
         self.frequencies = {}
         self.word_filters = []
         self.sentence_filters = []
+        self.feature_extractor = None
         
     def load(self, filename_questions, filename_categories):
         ### Reding category assignments ###
         qcatfile = open(filename_categories, 'r')
         qcatreader = csv.reader(qcatfile)
-        
         next(qcatreader) # skipping column discription
 
         qid_to_catid = {} # mapping from question_id to the parent category_id
@@ -37,32 +37,29 @@ class corpus:
             category_frequency[ self.cats.name(cat_id) ] += 1
         
         self.cats.frequencies = category_frequency
+        self.freqVecCats = np.array([ category_frequency for cat in id_to_cat ])
+        
         
         ### Reading questions ###
-        qfile = open(filename_questions, 'r')
-        qreader = csv.reader(qfile)
-        
-        col_names = [col for col in next(qreader)]
-        questions = []
-        
-        for row in qreader:
-            if len(row) != 21: continue # skipping rows with wrong collum length
-            if row[15] != "0": continue # skipping questions marked as deleted
-            
-            if int(row[0]) in qid_to_catid.keys(): # checking whether the question was actually assigned to a category
-                cat_id = int(row[0])
-                sentence = row[4].lower()
-                questions += [{"sentence":sentence, "category": self.cats.name( qid_to_catid[cat_id] )}]
+        with open(filename_questions, 'r') as qfile:
+            qreader = csv.reader(qfile)
+            col_names = [col for col in next(qreader)]
+            questions = []
+            for row in qreader:
+                if len(row) != 21: continue # skipping rows with wrong collum length
+                if row[15] != "0": continue # skipping questions marked as deleted
+                if int(row[0]) in qid_to_catid.keys(): # checking whether the question was actually assigned to a category
+                    cat_id = int(row[0])
+                    questions += [{ "sentence": row[4].lower(),
+                                    "category": self.cats.name( qid_to_catid[cat_id] ) }]
         
         ### Saving into pickle files ###
-        q_file = open('questions.pkl', 'wb+')
-        pickle.dump(questions, q_file)
-        q_file.close()
+        with open('questions.pkl', 'wb+') as q_file:
+            pickle.dump(questions, q_file)
         
-        self.file_loaded = True
-        
+        self.file_loaded = True 
         return self
-        
+    
     def process(self, sentence_filters, word_filters, tr_set_size=-1, te_set_size=-1, reprocessing=False):
         if reprocessing:
             # we are running filters on already filtered sentences
@@ -81,17 +78,14 @@ class corpus:
         
         questions = []
         for q in raw_questions:
-            # if we are not reprocessing: sentences might be first filtered and then tokenized
-            if not reprocessing:
+            if reprocessing:
+                words = q["words"]
+            else:
                 sentence = q['sentence']
-                # running a sequence of filters on the raw question string 
                 for filt in sentence_filters:
                     sentence = filt(sentence)
                 words = word_tokenize(sentence)
-            else:
-                words = q["words"]
             
-            # running a sequence of filtes on the already tokenized sentence
             for filt in word_filters:
                 words = filt(words)
             
@@ -113,8 +107,6 @@ class corpus:
             self.frequencies[ q["category"] ] += nltk.FreqDist( q["words"] )
             self.frequencies["all"] += nltk.FreqDist( q["words"] )
         
-        self.processed = True
-        
         id_to_term = np.array( list( self.frequencies['all'] ) )
         id_to_cat = np.array( self.cats.all_names() )
         
@@ -124,20 +116,28 @@ class corpus:
         
         self.id_to_term, self.id_to_cat = id_to_term, id_to_cat
         
+        self.processed = True
         return self
         
-    def make_features(self, term_space):
-        """
-        Recieves the (reduced) term-space as an np.array and returns a
-        feature matrix vor the training set.
-        """
+    def make_features(self, term_space, feature_extractor=bernoulli_model):
+        """ Creats features for the training and test-set applying the given feature model. """
+        self.feature_extractor = feature_extractor
         self.term_space = term_space
         
-        self.X_tr = np.array([ [(t in q['words']) for q in self.tr_set] for t in term_space ])
         self.y_tr = np.array([ self.cats.internal_id( q["category"] ) for q in self.tr_set])
-        
-        self.X_te = np.array([ [(t in q['words']) for q in self.te_set] for t in term_space ])
         self.y_te = np.array([ self.cats.internal_id( q["category"] ) for q in self.te_set])
+        
+        out = feature_extractor(self.tr_set, term_space)
+        
+        if type(out) == tuple:
+            self.X_tr, extras = out
+            self.X_te = feature_extractor(self.te_set, term_space, extras)
+            self.term_space_extras = extras
+        else:
+            self.X_tr = out
+            self.term_space_extras = None
+            self.X_te = feature_extractor(self.te_set, term_space)
+        
         return self
     
     def save(self):
@@ -154,6 +154,9 @@ class corpus:
             words = word_tokenize(sentence)
             for filt in self.word_filters:
                 words = filt(words)
-            print(words)
-            X[:,i] = np.array( [ (t in words) for t in self.term_space ] )
+            
+            if self.term_space_extras is None:
+                X[:,i] = self.feature_extractor([words], self.term_space)
+            else:
+                X[:,i] = self.feature_extractor([words], self.term_space, self.term_space_extras).flatten()
         return X

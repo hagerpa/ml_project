@@ -1,16 +1,10 @@
-"""This file contains several methods that build a vocabulary.
-A vocabulary is a list of words/strings that is somehow extracted from the corpus
-and can later on be used to extract features. The standart method recieves as input
-a corpus reprecented as a list of dictionries containing the pre-filtered words
-(as a list) and the corresponding category. The output must be a set of words.
-It also neeads the categoires used.
+"""This file contains several methods that select a reduced vocabulary from the term-space
+of the training-set of a corpus.
 
 gerneral INPUT:
-- corpus :a list of dictionries containing the pre-filtered words (as a list) and
-the corresponding category
-- frequencies: a nltk.FreqDist object that contatians the freqeuneces of al words
-from the entier corpus
-- categories: a list of the category names
+- corpus: a corpus object, see the corpus class.
+- M: a parameter by which degree the method should reduce. M has a diffrent meaning for
+    the diffrent methods.
 """
 
 import itertools
@@ -53,28 +47,18 @@ def ig_based(corpus, M=100, read_from_file=False):
     """
     ig = calculate_ig_values(corpus, read_from_file)
     best_term_ids = (np.argsort(-ig, axis=0)[:M,:]).flatten()
-    vocab = set(corpus.id_to_term[ best_term_ids ])
-    return vocab
+    return corpus.id_to_term[ best_term_ids ]
 
-def ig_based_non_uniform(corpus, M=1000, read_from_file=False, out="array"):
-    """
-    This method builds a vocabulary by selecting M words form the term-space of the corpus
-    with the best "information-gain" values. Therefore the information gain index
-    is first calculated, or if specified so, read from file.
-    """
+def ig_based_non_uniform(corpus, M=1000, read_from_file=False):
+    """ This method selects a vocabulary by choosing M words form the term-space of the training set
+    with the best "information-gain" values. """
     ig = calculate_ig_values(corpus, read_from_file)
     best_term_ids = np.argsort( np.sort(-ig, axis=1)[:,0] )[:M]
-    
-    if(out == "array"):
-        return corpus.id_to_term[ best_term_ids ]
-    elif(out == "set"):
-        return set(corpus.id_to_term[ best_term_ids ])
+    return corpus.id_to_term[ best_term_ids ]
 
 def calculate_ig_values(corpus, read_from_file):
-    """
-    This method calculates the information gain all terms in the training set of a given corpus.
-    It returns a numpy arry with ig-entries as term x category.
-    """
+    """ This method calculates the information gain for all terms in the training set of a given corpus.
+    It returns a numpy array with ig-entries as term x category. """
     if read_from_file:
         return np.load("information_gain.npy")
     else:

@@ -1,10 +1,12 @@
 import numpy as np
 import csv
-from nltk import word_tokenize
 from collections import Counter
 import pickle
-from feature_extractors import tfidf
+from feature_extractors import tfidf, multinomial_model
+from vocabulary_builders import ig_based_non_uniform as ig_nonun
 from sklearn.preprocessing import normalize
+from filters import run_filters
+from scipy import sparse
 
 def load_from_file():
     with open("corpus.pkl", "rb") as f:
@@ -56,18 +58,21 @@ class corpus:
         return self
     
     def process(self, sentence_filters, word_filters, tr_set_size=-1, te_set_size=-1, reprocessing=False):
+        """ Run this method after loading documents form file. It will apply the given sentence and word
+        filters to the documents and count frequencies. This method must be excuted befor making features."""
+        
         if reprocessing:
             if self.processed:
                 raw_questions = np.append(self.tr_set, self.te_set)
                 y = np.append(self.y_tr, self.y_te)
             else:
-                raise Exception("Reprocessing question befor processing them is not possible.")
+                raise Exception("Reprocessing documents befor processing them is not possible.")
         else:
             if self.file_loaded:
                 raw_questions = self.questions
                 y = self.y
             else:
-                raise Exception("Processing question befor loading them from file is not possible.")
+                raise Exception("Processing documents befor loading them is not possible. Run .load(-filenames-) first.")
         
         if tr_set_size == 0: raise ValueError("training set size cant be zero.")
         elif tr_set_size < 0: pass
@@ -76,15 +81,9 @@ class corpus:
             raw_questions = raw_questions[:tr_set_size + te_set_size]
             y = y[:tr_set_size + te_set_size]
         
-        questions = []
-        for q in raw_questions:
-            if type(q) == str:
-                for filt in sentence_filters: q = filt(q)
-                q = word_tokenize(q)
-            if type(q) == list:
-                for filt in word_filters: q = filt(q)
-            questions += [q]
-        questions = np.array(questions)
+        questions = np.array( run_filters(raw_questions, sentence_filters, word_filters) )
+        self.sentence_filters = self.sentence_filters + sentence_filters
+        self.word_filters = self.word_filters + word_filters
         
         if not reprocessing:
             Qy = np.array([questions, y]).T
@@ -92,64 +91,84 @@ class corpus:
             questions, y = Qy.T
             y = np.array(y, dtype=int)
         
-        self.sentence_filters = self.sentence_filters + sentence_filters
-        self.word_filters = self.word_filters + word_filters
-        
         self.tr_set, self.y_tr = questions[:tr_set_size], y[:tr_set_size]
         self.te_set, self.y_te = questions[tr_set_size:], y[tr_set_size:]
         
-        frequencies["all"] = Counter()
-        for i in range(len(self.cats)):
-            frequencies[i] = Counter()
-            for q in self.tr_set[self.y_tr == i]:
-                frequencies[i] += Counter(q)
-            frequencies["all"] += frequencies[i]
+        frequencies = {i: Counter() for i in range(len(self.cats))}
+        frequencies['all'] = Counter()
+        for q, c in zip(self.tr_set, self.y_tr):
+            frequencies[c] += Counter(q)
+            frequencies['all'] += Counter(q)
         
         self.all_terms = np.array( list( frequencies['all'] ) )
         
         freqVecTerms = np.array([ frequencies['all'][t] for t in self.all_terms ])
         self.freqVecTerms = freqVecTerms / sum(freqVecTerms)
         
-        freqMatrix = np.array([ [frequencies[c][t] for c in range(len(self.cats))] for t in self.all_terms])
+        freqMatrix = np.array([ [frequencies[c][t] for c in range(len(self.cats))] for t in self.all_terms], dtype='float64')
         self.freqMatrix = normalize(freqMatrix, norm='l1', axis=0)
+        
+        self.X_all_tr = multinomial_model(self.tr_set, self.all_terms)
+        self.X_all_te = multinomial_model(self.te_set, self.all_terms)
         
         self.processed = True
         return self
         
-    def make_features(self, term_space, feature_extractor=tfidf):
-        """ Creats features for the training and test-set applying the given feature model. """
+    def make_features(self, M=-1, vocabulary_builder=ig_nonun, feature_extractor=tfidf):
+        """ Creats sparse (csr) feature matricies for the training- and test-set applying the 
+        given feature models for feature selcetion and extraction. """
+       
+        self.vocabulary_builder = ig_nonun, M
         self.feature_extractor = feature_extractor
-        self.term_space = term_space
         
-        out = feature_extractor(self.tr_set, term_space)
+        tmsp_ids = vocabulary_builder(self, M)
+        self.term_space = self.all_terms[tmsp_ids]
+        
+        self.X_tr = self.X_all_tr[:,tmsp_ids]
+        self.X_te = self.X_all_te[:,tmsp_ids]
+        
+        out = feature_extractor(self.X_tr)
         
         if type(out) == tuple:
-            self.X_tr, extras = out
-            self.X_te = feature_extractor(self.te_set, term_space, extras)
-            self.term_space_extras = extras
+            self.X_tr, self.term_space_extras = out
         else:
-            self.X_tr = out
-            self.term_space_extras = None
-            self.X_te = feature_extractor(self.te_set, term_space)
+            self.X_tr, self.term_space_extras = out, None
         
+        self.X_te = feature_extractor(self.X_te, self.term_space_extras)
         self.made_feautres = True
         return self
     
-    def process_example(self, raw_questions):
+    def process_example(self, raw_documents):
+        """ Pass this method an iterable of documents (strings) and it will process the docuemnts
+        acordingly to the training set. It will return a sparse (csr) feature matrx."""
+        
         if not self.made_feautres:
             raise Exception("First run .make_features(), to make features for the training set.")
-        X = np.zeros((len(self.term_space), len(raw_questions)))
-        for q, i in zip(raw_questions, range(len(raw_questions))):
-            sentence = q.lower()
-            for filt in self.sentence_filters:
-                sentence = filt(sentence)
-            
-            words = word_tokenize(sentence)
-            for filt in self.word_filters:
-                words = filt(words)
-            
-            if self.term_space_extras is None:
-                X[:,i] = self.feature_extractor([words], self.term_space)
-            else:
-                X[:,i] = self.feature_extractor([words], self.term_space, self.term_space_extras).flatten()
-        return X
+        documents = run_filters(raw_documents, self.sentence_filters, self.word_filters)
+        return self.feature_extractor(documents, self.term_space, self.term_space_extras)
+    
+    def size(self):
+        if self.processed: return len(self.tr_set), len(self.te_set)
+        else: return None
+    
+    def __str__(self):
+        out = "";
+        out += "{0} categories. \n".format(len(self.cats))
+        
+        if self.file_loaded:
+            out += "{0} docuemnts loaded from file. \n".format(len(self.questions))
+            out += "processed: {0} \n".format(self.processed)
+        else:
+            out += "loaded from file: False"
+            return out
+        if self.processed:
+            out += "\t Training-set, Test-set size: {0} \n".format(self.size())
+            out += "\t\t sentence_filters: {0} \n".format([f.__name__ for f in self.sentence_filters])
+            out += "\t\t word_filters: {0} \n".format([f.__name__ for f in self.word_filters])
+        else:
+            return out
+        out += "made numeric features: {0} \n".format(self.made_feautres)
+        if self.made_feautres:
+            out += "\t vocabulary_builder, M: {0}, {1} \n".format(self.vocabulary_builder[0].__name__, self.vocabulary_builder[1])
+            out += "\t feature_extractor: {0} \n".format(self.feature_extractor.__name__)
+        return out

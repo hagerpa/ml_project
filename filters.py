@@ -1,12 +1,23 @@
 import re
 from nltk import snowball
 from nltk.corpus import stopwords
+from nltk import word_tokenize
 
 """ This file contains only filters, those are methods that have as a input and output either a
 list of strings, or just a string. Such methods are ment to remove unnecessaire elements, or filter 
 information in another way (e.g. by stemming).
 """
 
+def run_filters(raw_documents, sentence_filters, word_filters):
+    documents = []
+    for d in raw_documents:
+        if type(d) == str:
+            for filt in sentence_filters: d = filt(d)
+            d = word_tokenize(d)
+        if type(d) == list:
+            for filt in word_filters: d = filt(d)
+        documents += [d]
+    return documents
 
 def punctuation_filter(sentence):
     """A simple filter that essentialy substitutes punctuation symbols by whitespaces and at the same

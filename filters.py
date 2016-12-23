@@ -2,16 +2,25 @@ import re
 from nltk import snowball
 from nltk.corpus import stopwords
 from nltk import word_tokenize
+import numpy
 
 """ This file contains only filters, those are methods that have as a input and output either a
 list of strings, or just a string. Such methods are ment to remove unnecessaire elements, or filter 
 information in another way (e.g. by stemming).
 """
 
+def std_filters():
+    """This method retuns a arguments dictionary with standart filters. """
+    kwargs = {
+        "sentence_filters":[punctuation_filter],
+        "word_filters":[small_word_filter, stopword_filter, stemming_filter]
+    }
+    return kwargs
+
 def run_filters(raw_documents, sentence_filters, word_filters):
     documents = []
     for d in raw_documents:
-        if type(d) == str:
+        if type(d) in [str, numpy.str_]:
             for filt in sentence_filters: d = filt(d)
             d = word_tokenize(d)
         if type(d) == list:

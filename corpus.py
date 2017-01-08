@@ -122,9 +122,9 @@ class corpus:
         running this method, the corpus becomes an iterable object, which for each iteration creats a new
         traing-/ test-set split. """
         if not (type(n_folds) == int):
-            raise Value_Error("Number of folds must be integer.")
+            raise ValueError("Number of folds must be integer.")
         elif not n_folds > 2:
-            raise Value_Error("Number of folds must greater then 2.")
+            raise ValueError("Number of folds must greater then 2.")
         
         fold_freqs = {}
         skf = StratifiedKFold(n_splits=n_folds, shuffle=False)
@@ -186,7 +186,7 @@ class corpus:
         self.current_fold += 1
         return self
         
-    def make_features(self, M=-1, vocabulary_builder=ig_nonun, feature_extractor=tfidf):
+    def make_features(self, M=-1, vocabulary_builder=ig_nonun, feature_extractor=multinomial_model):
         """ Creats sparse (csr) feature matricies for the training- and test-set applying the 
         given feature models for feature selcetion and extraction. """
         self.vocabulary_builder = vocabulary_builder, M

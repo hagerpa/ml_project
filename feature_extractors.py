@@ -24,11 +24,11 @@ def general_model(*args):
 def bernoulli_model(*args):
     """ The ith component of the feature vector is 1 if the ith word of the term-space is
     contained in the document, otherwise its set to 0. """
-    if (len(args) == 2):
+    if (type(args[0]) == sparse.csr.csr_matrix):
+        return args[0] > 0
+    elif (len(args) == 2):
         def feat(d, t): return t in d
         return general_model(*args, feat)
-    elif (len(args)==1) & (type(args[0]) == sparse.csr.csr_matrix):
-        return args[0] > 0
     else:
         raise Exception("Argument not understood. Either to iterables, or sparse csr matrix")
     
@@ -36,11 +36,11 @@ def multinomial_model(*args):
     """ The ith component of the feature vector is k if the ith word in the document is
     the kth word in the term-space. If the ith word of the document is not contained
     in the term-space, it is skipped. """
-    if (len(args) == 2):
+    if (type(args[0]) == sparse.csr.csr_matrix):
+        return args[0]
+    elif (len(args) == 2):
         def feat(d, t): return d.count(t)
         return general_model(*args, feat)
-    elif (len(args)==1) & (type(args[0]) == sparse.csr.csr_matrix):
-        return args[0]
     else:
         raise Exception("Argument not understood. Either to iterables, or sparse csr matrix")
 

@@ -7,8 +7,8 @@ import numpy as np
 from sklearn.preprocessing import normalize
 from scipy import sparse
 
-def general_model(*args):
-    documents, term_space, feat = args[0], args[1], args[-1]
+def general_model(*args, feat=None):
+    documents, term_space, feat = args[0], args[1], feat
     term_space_inv = {term_space[i]: i for i in range(len(term_space))}
     
     if type(documents[0]) == list:
@@ -28,7 +28,7 @@ def bernoulli_model(*args):
         return args[0] > 0
     elif len(args) in [2,3]:
         def feat(d, t): return t in d
-        return general_model(*args, feat)
+        return general_model(*args, feat=feat)
     else:
         raise Exception("Argument not understood. Either to iterables, or sparse csr matrix")
     
@@ -40,7 +40,7 @@ def multinomial_model(*args):
         return args[0]
     elif len(args) in [2,3]:
         def feat(d, t): return d.count(t)
-        return general_model(*args, feat)
+        return general_model(*args, feat=feat)
     else:
         raise Exception("Argument not understood. Either to iterables, or sparse csr matrix")
 

@@ -215,6 +215,18 @@ class corpus:
         
         if not self.made_feautres:
             raise Exception("First run .make_features(), to make features for the training set.")
+        
+        if type(raw_documents)==str:
+            with open(raw_documents, 'r') as qfile:
+                qreader = csv.reader(qfile); next(qreader)
+                questions = []
+                for row in qreader:
+                    if len(row) != 21: continue # skipping rows with wrong collum length
+                    if row[15] != "0": continue # skipping questions marked as deleted
+                    questions += [ row[4].lower() ]
+            
+            raw_documents = questions
+        
         documents = run_filters(raw_documents, self.sentence_filters, self.word_filters)
         return self.feature_extractor(documents, self.term_space, self.term_space_extras)
     

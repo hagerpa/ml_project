@@ -26,7 +26,7 @@ def bernoulli_model(*args):
     contained in the document, otherwise its set to 0. """
     if (type(args[0]) == sparse.csr.csr_matrix):
         return args[0] > 0
-    elif (len(args) == 2):
+    elif len(args) in [2,3]:
         def feat(d, t): return t in d
         return general_model(*args, feat)
     else:
@@ -38,7 +38,7 @@ def multinomial_model(*args):
     in the term-space, it is skipped. """
     if (type(args[0]) == sparse.csr.csr_matrix):
         return args[0]
-    elif (len(args) == 2):
+    elif len(args) in [2,3]:
         def feat(d, t): return d.count(t)
         return general_model(*args, feat)
     else:

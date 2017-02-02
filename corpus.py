@@ -5,7 +5,7 @@ import pickle
 from feature_extractors import tfidf, multinomial_model
 from vocabulary_builders import ig_based_non_uniform as ig_nonun
 from sklearn.preprocessing import normalize
-from filters import run_filters_sentence, run_filters_words, std_filters
+from filters import run_filters_sentence, run_filters_words, std_filters, stopword_filter
 from scipy import sparse
 from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit
 import spell_checker as spell_checker_class
@@ -86,10 +86,20 @@ class corpus:
         
         questions = run_filters_sentence(questions, sentence_filters)
         
-        self.spell_checker = spell_checker_class.spell_checker()
-        qestions = [ self.spell_checker.correct(q) for q in questions]
-        qestions = [ self.spell_checker.correct(q) for q in questions]
+        if stopword_filter in word_filters:
+            questions = run_filters_words(questions, [stopword_filter])
+        """
+        self.spell_checker = {}
+        questions = np.array( questions )
+        for i in range(len(self.cats)):
+            exmpl_mask = ( self.y == i )
+            self.spell_checker[i] = spell_checker_class.spell_checker( questions[exmpl_mask] )
+            if len(self.spell_checker[i].vocabulary) < 2000:
+                questions[exmpl_mask] = [ self.spell_checker[i].correct(q) for q in questions[exmpl_mask] ]
         
+        #self.spell_checker = spell_checker_class.spell_checker(questions)
+        #qestions = [ self.spell_checker.correct(q) for q in questions]
+        """
         questions = np.array( run_filters_words(questions, word_filters) )
         self.questions = questions
         self.sentence_filters += sentence_filters
@@ -250,14 +260,13 @@ class corpus:
         out += "{0} categories. \n".format(len(self.cats))
         
         
-        out += "- loaded from file: " + self.file_loaded
+        out += "- loaded from file: " + str(self.file_loaded) + "\n"
         if self.file_loaded:
-            out += "{0} docuemnts loaded from file. \n".format(len(self.questions))
-            out += "processed: {0} \n".format(self.processed)
+            out += "\t {0} docuemnts loaded from file. \n".format(len(self.questions))
         else:
             return out
         
-        out += "- processed: " + self.processed
+        out += "- processed: " + str(self.processed) + "\n"
         if self.processed:
             out += "\t sentence_filters: {0} \n".format([f.__name__ for f in self.sentence_filters])
             out += "\t word_filters: {0} \n".format([f.__name__ for f in self.word_filters])
@@ -265,16 +274,16 @@ class corpus:
             return out
         
         if self.in_simple_split:
-            out += "- corpus in simple split:"
+            out += "- corpus in simple split:" + "\n"
             out += "\t Training-set, Test-set size: {0} \n".format(self.size())
         elif self.in_cv_split:
-            out += "- corpus in cv-split:"
-            out += "\t fold " + self.current_fold + " / " + self.n_folds
+            out += "- corpus in cv-split:" + "\n"
+            out += "\t fold " + self.current_fold + " / " + self.n_folds + "\n"
             out += "\t Training-set, Test-set size: {0} \n".format(self.size())
         else:
             return out
         
-        out += "- made numeric features:" + self.made_feautres
+        out += "- made numeric features: " + str(self.made_feautres) + "\n"
         if self.made_feautres:
             out += "\t vocabulary_builder, M: {0}, {1} \n".format(self.vocabulary_builder[0].__name__, self.vocabulary_builder[1])
             out += "\t feature_extractor: {0} \n".format(self.feature_extractor.__name__)

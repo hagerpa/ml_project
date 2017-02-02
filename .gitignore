@@ -1,9 +1,0 @@
-.DS_STORE
-.gitignore
-features.npz
-ignoring
-cv_results
-corpus.pkl
-questions.pkl
-__pycache__/
-.ipynb*

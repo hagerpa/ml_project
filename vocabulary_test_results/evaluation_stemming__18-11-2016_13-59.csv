@@ -1,7 +1,0 @@
-vocabulary_builder,comment,arguments,vocabulary_length,tr_set_size,te_set_size,standard_accuracy,uniform_accuracy
-ig-based,without stemming,{'M': 200},2037,10000,4417,0.5601086710436948,0.42022935931266253
-ig-based,without stemming,"{'read_from_file': True, 'M': 300}",3074,10000,4417,0.5569390989359294,0.4043699527752887
-ig-based,without stemming,"{'read_from_file': True, 'M': 400}",4045,10000,4417,0.5515055467511886,0.3902942420491985
-ig-based,without stemming,{'M': 200},1999,10000,4417,0.5669006112746208,0.43413401873205254
-ig-based,without stemming,"{'read_from_file': True, 'M': 300}",2969,10000,4417,0.5621462531129726,0.4140092259416362
-ig-based,without stemming,"{'read_from_file': True, 'M': 400}",3936,10000,4417,0.5594294770206022,0.4019264246954532

@@ -1,0 +1,17 @@
+id,f1,accuracy,time,feature_extractor,M,solver,penalty,C
+0,0.477740746306,0.554419650911,0.59702928861,<function multinomial_model at 0x105e4fd90>,-1,liblinear,l1,0.5
+1,0.488457131822,0.559690409011,0.57602596283,<function multinomial_model at 0x105e4fd90>,-1,liblinear,l1,0.57
+2,0.495755369873,0.563713448904,0.452290932337,<function multinomial_model at 0x105e4fd90>,-1,liblinear,l1,0.66
+3,0.502173220041,0.568013979086,0.50442369779,<function multinomial_model at 0x105e4fd90>,-1,liblinear,l1,0.76
+4,0.50971520207,0.571481896099,0.512714465459,<function multinomial_model at 0x105e4fd90>,-1,liblinear,l1,0.87
+5,0.5114315238,0.572799809734,0.514836947123,<function multinomial_model at 0x105e4fd90>,-1,liblinear,l1,1.0
+6,0.518272104705,0.576545548549,8.09176031748,<function multinomial_model at 0x105e4fd90>,-1,liblinear,l1,1.15
+7,0.524126055209,0.581470254793,6.37681174278,<function multinomial_model at 0x105e4fd90>,-1,liblinear,l1,1.32
+8,0.531320887756,0.585215618431,0.65927139918,<function multinomial_model at 0x105e4fd90>,-1,liblinear,l1,1.52
+9,0.528026629916,0.585146260143,27.1407820384,<function multinomial_model at 0x105e4fd90>,-1,liblinear,l1,1.74
+10,0.531930050043,0.586949663995,16.0658772786,<function multinomial_model at 0x105e4fd90>,-1,liblinear,l1,2.0
+11,0.530468439839,0.588059850996,4.80535999934,<function multinomial_model at 0x105e4fd90>,-1,liblinear,l1,2.3
+12,0.530770864428,0.587018458436,19.948066632,<function multinomial_model at 0x105e4fd90>,-1,liblinear,l1,2.64
+13,0.527148450155,0.58472963714,12.2424000104,<function multinomial_model at 0x105e4fd90>,-1,liblinear,l1,3.03
+14,0.527280752818,0.585077566503,21.9113676548,<function multinomial_model at 0x105e4fd90>,-1,liblinear,l1,3.48
+15,0.523491687099,0.58348292965,2.89711594582,<function multinomial_model at 0x105e4fd90>,-1,liblinear,l1,4.0

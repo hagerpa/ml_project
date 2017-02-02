@@ -5,9 +5,10 @@ import pickle
 from feature_extractors import tfidf, multinomial_model
 from vocabulary_builders import ig_based_non_uniform as ig_nonun
 from sklearn.preprocessing import normalize
-from filters import run_filters, std_filters
+from filters import run_filters_sentence, run_filters_words, std_filters
 from scipy import sparse
 from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit
+import spell_checker as spell_checker_class
 
 def load_from_file():
     with open("corpus.pkl", "rb") as f:
@@ -82,7 +83,14 @@ class corpus:
             questions = self.questions[:corpus_size]
             self.y = self.y[:corpus_size]
         
-        questions = np.array( run_filters(questions, sentence_filters, word_filters) )
+        
+        questions = run_filters_sentence(questions, sentence_filters)
+        
+        self.spell_checker = spell_checker_class.spell_checker()
+        qestions = [ self.spell_checker.correct(q) for q in questions]
+        qestions = [ self.spell_checker.correct(q) for q in questions]
+        
+        questions = np.array( run_filters_words(questions, word_filters) )
         self.questions = questions
         self.sentence_filters += sentence_filters
         self.word_filters += word_filters
@@ -241,22 +249,38 @@ class corpus:
         out = "";
         out += "{0} categories. \n".format(len(self.cats))
         
+        
+        out += "- loaded from file: " + self.file_loaded
         if self.file_loaded:
             out += "{0} docuemnts loaded from file. \n".format(len(self.questions))
             out += "processed: {0} \n".format(self.processed)
         else:
-            out += "loaded from file: False"
             return out
+        
+        out += "- processed: " + self.processed
         if self.processed:
-            out += "\t Training-set, Test-set size: {0} \n".format(self.size())
-            out += "\t\t sentence_filters: {0} \n".format([f.__name__ for f in self.sentence_filters])
-            out += "\t\t word_filters: {0} \n".format([f.__name__ for f in self.word_filters])
+            out += "\t sentence_filters: {0} \n".format([f.__name__ for f in self.sentence_filters])
+            out += "\t word_filters: {0} \n".format([f.__name__ for f in self.word_filters])
         else:
             return out
-        out += "made numeric features: {0} \n".format(self.made_feautres)
+        
+        if self.in_simple_split:
+            out += "- corpus in simple split:"
+            out += "\t Training-set, Test-set size: {0} \n".format(self.size())
+        elif self.in_cv_split:
+            out += "- corpus in cv-split:"
+            out += "\t fold " + self.current_fold + " / " + self.n_folds
+            out += "\t Training-set, Test-set size: {0} \n".format(self.size())
+        else:
+            return out
+        
+        out += "- made numeric features:" + self.made_feautres
         if self.made_feautres:
             out += "\t vocabulary_builder, M: {0}, {1} \n".format(self.vocabulary_builder[0].__name__, self.vocabulary_builder[1])
             out += "\t feature_extractor: {0} \n".format(self.feature_extractor.__name__)
+        else:
+            return out
+        
         return out
 
 def count_freqs(documents, lables, n_cats):

@@ -108,14 +108,23 @@ class corpus:
         self.processed = True
         return self
     
-    def simple_split(self, test_size=0):
+    def simple_split(self, test_size=0, random_seed=None):
+        """ Devides the processed corpus into a training- and test-set. The percentage of examples from the
+        corpus which form the test-set is specified by test_size. If it is set to 0 the entier corpus will
+        form the training set. Note that the terms-space is build only by words accuring in the training set.
+        """
         m = len(self.cats) # number of categories
+        
+        if random_seed:
+            self.random_seed = random_seed
+        else:
+            self.random_seed = np.random.randint(2**32 - 1)
         
         if test_size==0:
             tr_set, self.y_tr = self.questions[:-1], self.y[:-1]
             te_set, self.y_te = self.questions[-1:], self.y[-1:]
         else:
-            sss = StratifiedShuffleSplit(n_splits=1, test_size=test_size)
+            sss = StratifiedShuffleSplit(n_splits=1, test_size=test_size, random_state=self.random_seed)
             tr_set_ids, te_set_ids = next( sss.split(self.y, self.y) )
         
             tr_set, self.y_tr = self.questions[tr_set_ids], self.y[tr_set_ids]
@@ -131,21 +140,30 @@ class corpus:
         freqVecCats = np.array( [ np.sum(self.y_tr==i) for i in range(m) ] )
         self.freqVecCats = freqVecCats / sum(freqVecCats)
         
-        self.in_simple_split=True
+        self.in_simple_split = True
+        self.in_cv_split = False
         return self
     
-    def cv_split(self, n_folds):
+    def cv_split(self, n_folds, random_seed=None):
         """ This mehtod provides an efficient way to creat n_folds on the corpus for cross validation.
         It Counts term_frequencies for each folds seperatly so that they can simply be merged. After
         running this method, the corpus becomes an iterable object, which for each iteration creats a new
         traing-/ test-set split. """
+        
         if not (type(n_folds) == int):
             raise ValueError("Number of folds must be integer.")
         elif not n_folds > 2:
             raise ValueError("Number of folds must greater then 2.")
         
         fold_freqs = {}
-        skf = StratifiedKFold(n_splits=n_folds, shuffle=False)
+        
+        if random_seed:
+            self.random_seed = random_seed
+        else:
+            self.random_seed = np.random.randint(2**32 - 1)
+        
+        skf = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=self.random_seed)
+        
         for i, (_, fold) in zip(range(n_folds), skf.split(self.y,self.y)):
             docs = self.questions[fold]
             labels = self.y[fold]
@@ -158,9 +176,13 @@ class corpus:
         self.skf_iter = skf.split(self.y,self.y)
         
         self.in_cv_split = True
+        self.in_simple_split = False
         return self
     
-    def reset(self): # if the itteration should be repeated with same folds
+    def reset(self):
+        """ If its necessary to reapet the iteration of fold in the cross-validation, then run
+        this method first and it will set the corpus to the initial state with same folds.
+        """
         if self.in_cv_split:
             self.current_fold = 0
             self.skf_iter = self.skf.split(self.y,self.y)
@@ -172,6 +194,7 @@ class corpus:
         return self
     
     def __next__(self):
+        """ Iterate through folds when corpus is in cv-split. """
         if not self.in_cv_split:
             raise Exception("Can not iterate befor running .cv_split(n_folds)!")
         if self.current_fold > self.n_folds:
@@ -249,6 +272,8 @@ class corpus:
         return self.feature_extractor(documents, self.term_space, self.term_space_extras)
     
     def size(self):
+        """Returns a tuple, where the first component correspondes to the training-set size and
+        the second to the test-set size."""
         if self.in_simple_split | self.in_cv_split:
             n, _ = self.X_all_tr.shape
             m, _ = self.X_all_te.shape
@@ -278,7 +303,7 @@ class corpus:
             out += "\t Training-set, Test-set size: {0} \n".format(self.size())
         elif self.in_cv_split:
             out += "- corpus in cv-split:" + "\n"
-            out += "\t fold " + self.current_fold + " / " + self.n_folds + "\n"
+            out += "\t fold {0} / {1} \n".format(self.current_fold, self.n_folds)
             out += "\t Training-set, Test-set size: {0} \n".format(self.size())
         else:
             return out

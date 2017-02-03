@@ -1,0 +1,9 @@
+.DS_STORE
+features.npz
+ignoring
+cv_results
+corpus.pkl
+questions.pkl
+__pycache__/
+*.pyc
+.ipynb*

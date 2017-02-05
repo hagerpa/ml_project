@@ -88,6 +88,7 @@ class corpus:
         
         if stopword_filter in word_filters:
             questions = run_filters_words(questions, [stopword_filter])
+        
         """
         self.spell_checker = {}
         questions = np.array( questions )
@@ -98,8 +99,8 @@ class corpus:
                 questions[exmpl_mask] = [ self.spell_checker[i].correct(q) for q in questions[exmpl_mask] ]
         
         #self.spell_checker = spell_checker_class.spell_checker(questions)
-        #qestions = [ self.spell_checker.correct(q) for q in questions]
-        """
+        #qestions = [ self.spell_checker.correct(q) for q in questions] """
+        
         questions = np.array( run_filters_words(questions, word_filters) )
         self.questions = questions
         self.sentence_filters += sentence_filters

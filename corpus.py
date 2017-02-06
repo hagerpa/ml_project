@@ -62,10 +62,13 @@ class corpus:
         self.file_loaded = True 
         return self
     
-    def process(self, sentence_filters=None, word_filters=None, corpus_size=-1):
+    def process(self, sentence_filters=None,word_filters=None,
+    corpus_size=-1, test_corpus=False):
         """ This method runs given filters on the raw set of documents. One can choose a stratified
         subset of the documents by specifying corpus_size, note however that this set size can not
-        simply be extended. One needs to reload the corpus."""
+        simply be extended. One needs to reload the corpus. If test_corpus is True and corpus_size
+        smaller then the overall corpus, then these question will be saved in corpus.test_corpus and
+        not be contained in train or test-set. """
         
         if self.processed:
             raise Warning("Corpus is already processed. This might creat problems if corpus_size is diffrent now.")
@@ -80,16 +83,17 @@ class corpus:
             raise Warning("Corpus size was greater then avalible documents. Took all avalibales.")
             questions = self.questions
         else:
+            if test_corpus:
+                self.test_corpus = (self.questions[corpus_size:], self.y[corpus_size:])
             questions = self.questions[:corpus_size]
             self.y = self.y[:corpus_size]
         
-        
         questions = run_filters_sentence(questions, sentence_filters)
         
+        """
         if stopword_filter in word_filters:
             questions = run_filters_words(questions, [stopword_filter])
         
-        """
         self.spell_checker = {}
         questions = np.array( questions )
         for i in range(len(self.cats)):
@@ -102,6 +106,7 @@ class corpus:
         #qestions = [ self.spell_checker.correct(q) for q in questions] """
         
         questions = np.array( run_filters_words(questions, word_filters) )
+        
         self.questions = questions
         self.sentence_filters += sentence_filters
         self.word_filters += word_filters
@@ -269,7 +274,9 @@ class corpus:
             
             raw_documents = questions
         
-        documents = run_filters(raw_documents, self.sentence_filters, self.word_filters)
+        documents = run_filters_sentence(raw_documents, self.sentence_filters)
+        documents = np.array( run_filters_words(documents, self.word_filters) )
+        
         return self.feature_extractor(documents, self.term_space, self.term_space_extras)
     
     def size(self):

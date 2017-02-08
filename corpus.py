@@ -62,8 +62,7 @@ class corpus:
         self.file_loaded = True 
         return self
     
-    def process(self, sentence_filters=None,word_filters=None,
-    corpus_size=-1, test_corpus=False):
+    def process(self, sentence_filters=None,word_filters=None, corpus_size=1.0, test_corpus=False, random_state=None):
         """ This method runs given filters on the raw set of documents. One can choose a stratified
         subset of the documents by specifying corpus_size, note however that this set size can not
         simply be extended. One needs to reload the corpus. If test_corpus is True and corpus_size
@@ -72,21 +71,24 @@ class corpus:
         
         if self.processed:
             raise Warning("Corpus is already processed. This might creat problems if corpus_size is diffrent now.")
-        
-        if not type(corpus_size) == int:
-            raise ValueError("Corpus size must be passed as interger.")
+        if not type(corpus_size) == float:
+            raise ValueError("Corpus size must be passed as float.")
         elif corpus_size == 0:
             raise ValueError("Corpus size can not be zero.")
-        elif corpus_size < 0:
-            questions = self.questions
-        elif corpus_size > len(self.questions):
-            raise Warning("Corpus size was greater then avalible documents. Took all avalibales.")
+        elif (corpus_size < 0)|(corpus_size >= 1):
             questions = self.questions
         else:
+            if not random_state:
+                random_state = np.random.randint(2**32 - 1)
+            
+            sss = StratifiedShuffleSplit(n_splits = 1, test_size=None, train_size=corpus_size, random_state=random_state)
+            tr, te = next(sss.split(self.y,self.y))
+            
             if test_corpus:
-                self.test_corpus = (self.questions[corpus_size:], self.y[corpus_size:])
-            questions = self.questions[:corpus_size]
-            self.y = self.y[:corpus_size]
+                self.test_corpus = (self.questions[te], self.y[te])
+            
+            questions = self.questions[tr]
+            self.y = self.y[tr]
         
         questions = run_filters_sentence(questions, sentence_filters)
         

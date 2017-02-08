@@ -11,15 +11,18 @@ class categories:
     More over the class offers a method for printing all categories in a need way, and also
     ofers mehtods for quick acess on category information."""
     
-    def __init__(self):
+    def __init__(self, subcategories=False):
         """ By initializing a categorie object like this, immidiatly avaliable categories are
         read from the category.csv file."""
         self.id_to_dbid = np.array
         self.dbid_to_id = {}
         self.names = np.array
         self.names_to_id = {}
+        self.sub_to_subid = {}
+        self.subid_to_sub = np.array
         self.sub_to_id = {}
         self.id_to_subs = {}
+        self.subcategories = subcategories
         self = self.loadfromfile()
         
     def loadfromfile(self, print_changes=False):
@@ -42,8 +45,10 @@ class categories:
             file_clean.seek(0)
             
             reader = csv.reader(file_clean)
-            self.id_to_dbid, self.dbid_to_id, self.names,\
-                self.sub_to_id, self.id_to_subs, self.names_to_id = initialize(file_clean, reader)
+            self.id_to_dbid, self.dbid_to_id,\
+                self.names, self.sub_to_id,\
+                self.id_to_subs, self.names_to_id,\
+                self.subid_to_sub, self.sub_to_subid, = initialize(file_clean, reader)
         
         return self
     
@@ -56,16 +61,32 @@ class categories:
             out += "\n"
         return out
     
+    def get_parent(self, y):
+        if self.subcategories:
+            return np.array( [ self.sub_to_id[i] for i in self.subid_to_sub[y] ] )
+        else:
+            return y
+        
+    
     def __len__(self):
-        return len(self.id_to_dbid)
+        if self.subcategories:
+            return len(self.sub_to_id)
+        else:
+            return len(self.id_to_dbid)
     
     def __getitem__(self, ref):
         if type(ref) == int:
-            if ref > len(self): raise ValueError("Index out of bounds.")
-            return self.names[ref]
+            if ref > len(self):
+                raise ValueError("Index out of bounds.")
+            elif self.subcategories:
+                return self.subid_to_sub[ref]
+            else:
+                return self.names[ref]
         elif type(ref) == str:
             if len(ref) <= 2:
-                if int(ref) in self.sub_to_id:
+                if self.subcategories:
+                    return self.sub_to_subid[ int(ref) ]
+                else:
                     return self.sub_to_id[ int(ref) ]
             if ref in self.names_to_id:
                 return self.names_to_id[ref]
@@ -105,8 +126,11 @@ def initialize(catfile, catreader):
             id_to_subs[i] += [sid]
         else:
             id_to_subs[i] = [sid]
-
-    return id_to_dbid, dbid_to_id, names, sub_to_id, id_to_subs, names_to_id
+    
+    subid_to_sub = np.array( list(set(list(sub_to_id.keys()))) )
+    sub_to_subid = {subid_to_sub[i]: i for i in range(len(subid_to_sub))}
+    
+    return id_to_dbid, dbid_to_id, names, sub_to_id, id_to_subs, names_to_id, subid_to_sub, sub_to_subid
 
 def make_feature_name(name):
     featurename = name

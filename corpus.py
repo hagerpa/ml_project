@@ -9,6 +9,7 @@ from filters import run_filters_sentence, run_filters_words, std_filters, stopwo
 from scipy import sparse
 from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit
 import spell_checker as spell_checker_class
+from scipy.sparse import find
 
 def load_from_file():
     with open("corpus.pkl", "rb") as f:
@@ -26,6 +27,7 @@ class corpus:
         self.freqVecCats = np.zeros(len(categories))
         self.in_cv_split = False
         self.in_simple_split = False
+        self.removed_duplicates = False
     
     def save(self):
         with open("corpus.pkl", "wb+") as f:
@@ -38,8 +40,8 @@ class corpus:
             
             q_to_c = {}
             for qcat in qcatreader:
-                c_id = self.cats[ qcat[1] ]
-                q_id = int(qcat[2])
+                c_id = int( self.cats[ qcat[1] ] )
+                q_id = int( qcat[2] )
                 q_to_c[ q_id ] = c_id
                 self.freqVecCats[ c_id ] += 1
         
@@ -71,9 +73,7 @@ class corpus:
         
         if self.processed:
             raise Warning("Corpus is already processed. This might creat problems if corpus_size is diffrent now.")
-        if not type(corpus_size) == float:
-            raise ValueError("Corpus size must be passed as float.")
-        elif corpus_size == 0:
+        if corpus_size == 0:
             raise ValueError("Corpus size can not be zero.")
         elif (corpus_size < 0)|(corpus_size >= 1):
             questions = self.questions
@@ -82,7 +82,8 @@ class corpus:
                 random_state = np.random.randint(2**32 - 1)
             
             sss = StratifiedShuffleSplit(n_splits = 1, test_size=None, train_size=corpus_size, random_state=random_state)
-            tr, te = next(sss.split(self.y,self.y))
+            y_parent = self.cats.get_parent( self.y )
+            tr, te = next(sss.split( y_parent, y_parent ))
             
             if test_corpus:
                 self.test_corpus = (self.questions[te], self.y[te])
@@ -91,32 +92,25 @@ class corpus:
             self.y = self.y[tr]
         
         questions = run_filters_sentence(questions, sentence_filters)
-        
-        """
-        if stopword_filter in word_filters:
-            questions = run_filters_words(questions, [stopword_filter])
-        
-        self.spell_checker = {}
-        questions = np.array( questions )
-        for i in range(len(self.cats)):
-            exmpl_mask = ( self.y == i )
-            self.spell_checker[i] = spell_checker_class.spell_checker( questions[exmpl_mask] )
-            if len(self.spell_checker[i].vocabulary) < 2000:
-                questions[exmpl_mask] = [ self.spell_checker[i].correct(q) for q in questions[exmpl_mask] ]
-        
-        #self.spell_checker = spell_checker_class.spell_checker(questions)
-        #qestions = [ self.spell_checker.correct(q) for q in questions] """
-        
         questions = np.array( run_filters_words(questions, word_filters) )
+        
+        all_terms = set( w for d in questions for w in d )
+        all_terms = np.array( list(all_terms) )
+        X = multinomial_model(questions, all_terms)
+        
+        keep, _ = find_duplicates(X, key=-self.freqVecCats[self.y])
+        X = X[keep]
+        self.y = self.y[keep]
         
         self.questions = questions
         self.sentence_filters += sentence_filters
         self.word_filters += word_filters
-        
+        self.X_all = X
+        self.all_terms = all_terms
         self.processed = True
         return self
     
-    def simple_split(self, test_size=0, random_seed=None):
+    def simple_split(self, test_size=0, random_seed=None, remove_duplicates=True):
         """ Devides the processed corpus into a training- and test-set. The percentage of examples from the
         corpus which form the test-set is specified by test_size. If it is set to 0 the entier corpus will
         form the training set. Note that the terms-space is build only by words accuring in the training set.
@@ -128,26 +122,23 @@ class corpus:
         else:
             self.random_seed = np.random.randint(2**32 - 1)
         
-        if test_size==0:
-            tr_set, self.y_tr = self.questions[:-1], self.y[:-1]
-            te_set, self.y_te = self.questions[-1:], self.y[-1:]
+        if test_size == 0:
+            X_tr, y_tr = self.X_all[:-1], self.y[:-1]
+            X_te, y_te = self.X_all[-1:], self.y[-1:]
         else:
             sss = StratifiedShuffleSplit(n_splits=1, test_size=test_size, random_state=self.random_seed)
-            tr_set_ids, te_set_ids = next( sss.split(self.y, self.y) )
+            y_parent = self.cats.get_parent( self.y )
+            tr, te = next( sss.split( y_parent, y_parent ) )
+            X_tr, y_tr = self.X_all[ tr ], self.y[tr]
+            X_te, y_te = self.X_all[ te ], self.y[te]
         
-            tr_set, self.y_tr = self.questions[tr_set_ids], self.y[tr_set_ids]
-            te_set, self.y_te = self.questions[te_set_ids], self.y[te_set_ids]
+        I, J, _ = find(X_tr); J = list(set(J));
+        X_tr, X_te = X_tr[:, J], X_te[:, J]
+        terms = self.all_terms[J]
         
-        frequencies = count_freqs(tr_set, self.y_tr, m)
-        self.all_terms = np.array( list( frequencies['all'] ) )
-        self.freqVecTerms, self.freqMatrix = make_freq_vec(frequencies, self.all_terms, m)
-        
-        self.X_all_tr = multinomial_model(tr_set, self.all_terms)
-        self.X_all_te = multinomial_model(te_set, self.all_terms)
-        
-        freqVecCats = np.array( [ np.sum(self.y_tr==i) for i in range(m) ] )
-        self.freqVecCats = freqVecCats / sum(freqVecCats)
-        
+        self.X_tr, self.y_tr = X_tr, y_tr
+        self.X_te, self.y_te = X_te, y_te
+        self.term_space = terms
         self.in_simple_split = True
         self.in_cv_split = False
         return self
@@ -171,18 +162,11 @@ class corpus:
             self.random_seed = np.random.randint(2**32 - 1)
         
         skf = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=self.random_seed)
+        y_parent = self.cats.get_parent( self.y )
         
-        for i, (_, fold) in zip(range(n_folds), skf.split(self.y,self.y)):
-            docs = self.questions[fold]
-            labels = self.y[fold]
-            fold_freqs[i] = count_freqs(docs, labels, len(self.cats))
-        
-        self.fold_freqs = fold_freqs
         self.n_folds = n_folds
         self.current_fold = 0
-        self.skf = skf
-        self.skf_iter = skf.split(self.y,self.y)
-        
+        self.skf = skf.split( y_parent, y_parent )
         self.in_cv_split = True
         self.in_simple_split = False
         return self
@@ -193,7 +177,9 @@ class corpus:
         """
         if self.in_cv_split:
             self.current_fold = 0
-            self.skf_iter = self.skf.split(self.y,self.y)
+            skf = StratifiedKFold(n_splits=self.n_folds, shuffle=True, random_state=self.random_seed)
+            y_parent = self.cats.get_parent( self.y )
+            self.skf = skf.split( y_parent, y_parent )
         return self
     
     def __iter__(self):
@@ -208,62 +194,23 @@ class corpus:
         if self.current_fold > self.n_folds:
             raise StopIteration
         
-        m = len(self.cats)
+        tr, te = next(self.skf)
+        X_tr, y_tr = self.X_all[ tr ], self.y[ tr ]
+        X_te, y_te = self.X_all[ te ], self.y[ te ]
         
-        train, test = next(self.skf_iter)
-        tr_set, self.y_tr = self.questions[train], self.y[train]
-        te_set, self.y_te = self.questions[test], self.y[test]
+        I, J, _ = find(X_tr); J = list(set(J));
+        X_tr, X_te = X_tr[:, J], X_te[:, J]
+        terms = self.all_terms[J]
         
-        frequencies = {i: Counter() for i in range(m)}
-        frequencies['all'] = Counter()
-        for i in range(self.n_folds):
-            if not (i == self.current_fold):
-                frequencies['all'] += self.fold_freqs[i]['all']
-                for c in range(m):
-                    frequencies[c] += self.fold_freqs[i][c]
-        
-        self.all_terms = np.array( list( frequencies['all'] ) )
-        
-        self.freqVecTerms, self.freqMatrix = make_freq_vec(frequencies, self.all_terms, m)
-        
-        self.X_all_tr = multinomial_model(tr_set, self.all_terms)
-        self.X_all_te = multinomial_model(te_set, self.all_terms)
-        
-        freqVecCats = np.array( [ np.sum(self.y_tr==i) for i in range(m) ] )
-        self.freqVecCats = freqVecCats / sum(freqVecCats)
-        
+        self.X_tr, self.y_tr = X_tr, y_tr
+        self.X_te, self.y_te = X_te, y_te
+        self.term_space = terms
         self.current_fold += 1
         return self
         
-    def make_features(self, M=-1, vocabulary_builder=ig_nonun, feature_extractor=multinomial_model):
-        """ Creats sparse (csr) feature matricies for the training- and test-set applying the 
-        given feature models for feature selcetion and extraction. """
-        self.vocabulary_builder = vocabulary_builder, M
-        self.feature_extractor = feature_extractor
-        
-        tmsp_ids = vocabulary_builder(self, M)
-        self.term_space = self.all_terms[tmsp_ids]
-        
-        self.X_tr = self.X_all_tr[:,tmsp_ids]
-        self.X_te = self.X_all_te[:,tmsp_ids]
-        
-        out = feature_extractor(self.X_tr)
-        
-        if type(out) == tuple:
-            self.X_tr, self.term_space_extras = out
-        else:
-            self.X_tr, self.term_space_extras = out, None
-        
-        self.X_te = feature_extractor(self.X_te, self.term_space_extras)
-        self.made_feautres = True
-        return self
-    
     def process_example(self, raw_documents):
         """ Pass this method an iterable of documents (strings) and it will process the docuemnts
         acordingly to the training set. It will return a sparse (csr) feature matrx."""
-        
-        if not self.made_feautres:
-            raise Exception("First run .make_features(), to make features for the training set.")
         
         if type(raw_documents)==str:
             with open(raw_documents, 'r') as qfile:
@@ -273,13 +220,11 @@ class corpus:
                     if len(row) != 21: continue # skipping rows with wrong collum length
                     if row[15] != "0": continue # skipping questions marked as deleted
                     questions += [ row[4].lower() ]
-            
             raw_documents = questions
         
         documents = run_filters_sentence(raw_documents, self.sentence_filters)
         documents = np.array( run_filters_words(documents, self.word_filters) )
-        
-        return self.feature_extractor(documents, self.term_space, self.term_space_extras)
+        return multinomial_model(documents, self.term_space)
     
     def size(self):
         """Returns a tuple, where the first component correspondes to the training-set size and
@@ -327,19 +272,38 @@ class corpus:
         
         return out
 
-def count_freqs(documents, lables, n_cats):
-    frequencies = {i: Counter() for i in range(n_cats)}
-    frequencies['all'] = Counter()
-    for d, y in zip(documents, lables):
-        frequencies[y] += Counter(d)
-        frequencies['all'] += Counter(d)
-    return frequencies
+def find_duplicates(X, key):
+    remove = np.array([], dtype=int)
+    keep = np.array([], dtype=int)
+    n, _ = X.shape
+    
+    for i in range(n):
+        if i in np.concatenate((keep,remove)):
+            continue
+        _, J, _ = find( X[i,:] )
+        if len(J) == 0:
+            #remove = np.concatenate((remove, [i]))
+            keep = np.concatenate((keep, [i]))
+        else:
+            I, _, _ = find( X[i:,J].sum(axis=1) >= len(J) )
+            I = np.array([k for k in (I + i) if abs(X[i,:] - X[k,:]).sum() == 0])
+            I = I[ np.argsort( key[I] ) ]
+            remove = np.concatenate((remove, I[1:]))
+            keep = np.concatenate((keep, I[:1]))
+            
+    return keep, remove
+    
+"""
+if stopword_filter in word_filters:
+    questions = run_filters_words(questions, [stopword_filter])
 
-def make_freq_vec(frequencies, terms, n_cats):
-    freqVecTerms = np.array([ frequencies['all'][t] for t in terms])
-    freqVecTerms = freqVecTerms / sum(freqVecTerms)
-    
-    freqMatrix = np.array([ [frequencies[c][t] for c in range(n_cats)] for t in terms], dtype='float64')
-    freqMatrix = normalize(freqMatrix, norm='l1', axis=0)
-    
-    return freqVecTerms, freqMatrix
+self.spell_checker = {}
+questions = np.array( questions )
+for i in range(len(self.cats)):
+    exmpl_mask = ( self.y == i )
+    self.spell_checker[i] = spell_checker_class.spell_checker( questions[exmpl_mask] )
+    if len(self.spell_checker[i].vocabulary) < 2000:
+        questions[exmpl_mask] = [ self.spell_checker[i].correct(q) for q in questions[exmpl_mask] ]
+
+#self.spell_checker = spell_checker_class.spell_checker(questions)
+#qestions = [ self.spell_checker.correct(q) for q in questions] """

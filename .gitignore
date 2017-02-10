@@ -2,6 +2,7 @@
 features.npz
 ignoring
 cv_results
+cv_final
 corpus.pkl
 questions.pkl
 __pycache__/

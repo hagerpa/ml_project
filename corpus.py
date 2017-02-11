@@ -16,18 +16,15 @@ def load_from_file():
         return pickle.load(f)
 
 class corpus:
-    def __init__(self, categories):
+    def __init__(self, categories, freeze_random=False, random_seed=None, n_folds=3):
         self.file_loaded = False
         self.processed = False
-        self.made_feautres = False
         self.cats = categories
         self.word_filters = []
         self.sentence_filters = []
-        self.feature_extractor = None
-        self.freqVecCats = np.zeros(len(categories))
-        self.in_cv_split = False
-        self.in_simple_split = False
-        self.removed_duplicates = False
+        self.RANDOM_SEED = random_seed
+        self.FREEZE_RANDOM = freeze_random
+        self.N_FOLDS = n_folds
     
     def save(self):
         with open("corpus.pkl", "wb+") as f:
@@ -36,16 +33,13 @@ class corpus:
     def load(self, filename_questions, filename_categories):
         ### Reding category assignments ###
         with open(filename_categories, 'r') as qcatfile:
-            qcatreader = csv.reader(qcatfile); next(qcatreader) # skipping column discription
+            qcatreader = csv.reader(qcatfile); next(qcatreader) # skipping column titles
             
             q_to_c = {}
             for qcat in qcatreader:
                 c_id = int( self.cats[ qcat[1] ] )
                 q_id = int( qcat[2] )
                 q_to_c[ q_id ] = c_id
-                self.freqVecCats[ c_id ] += 1
-        
-        self.freqVecCats = self.freqVecCats / np.sum(self.freqVecCats)
         
         ### Reading questions ###
         with open(filename_questions, 'r') as qfile:
@@ -58,9 +52,12 @@ class corpus:
                     questions += [ row[4].lower() ]
                     y += [ q_to_c[ int(row[0]) ] ]
             
-            self.y = np.array(y, dtype=int)
-            self.questions = np.array(questions)
+            y = np.array(y, dtype=int)
+            questions = np.array(questions)
         
+        self.questions = questions
+        self.y = y
+        self.freqVecCats = np.bincount(y)/len(y)
         self.file_loaded = True 
         return self
     
@@ -77,6 +74,7 @@ class corpus:
             raise ValueError("Corpus size can not be zero.")
         elif (corpus_size < 0)|(corpus_size >= 1):
             questions = self.questions
+            y = self.y
         else:
             if not random_state:
                 random_state = np.random.randint(2**32 - 1)
@@ -89,7 +87,7 @@ class corpus:
                 self.test_corpus = (self.questions[te], self.y[te])
             
             questions = self.questions[tr]
-            self.y = self.y[tr]
+            y = self.y[tr]
         
         questions = run_filters_sentence(questions, sentence_filters)
         questions = np.array( run_filters_words(questions, word_filters) )
@@ -98,14 +96,14 @@ class corpus:
         all_terms = np.array( list(all_terms) )
         X = multinomial_model(questions, all_terms)
         
-        keep, _ = find_duplicates(X, key=-self.freqVecCats[self.y])
-        X = X[keep]
-        self.y = self.y[keep]
+        keep, _ = find_duplicates(X, key=-self.freqVecCats[ y ])
+        X, y = X[keep], y[keep]
         
-        self.questions = questions
+        self.questions = None
         self.sentence_filters += sentence_filters
         self.word_filters += word_filters
         self.X_all = X
+        self.y = y
         self.all_terms = all_terms
         self.processed = True
         return self
@@ -115,18 +113,14 @@ class corpus:
         corpus which form the test-set is specified by test_size. If it is set to 0 the entier corpus will
         form the training set. Note that the terms-space is build only by words accuring in the training set.
         """
-        m = len(self.cats) # number of categories
-        
-        if random_seed:
-            self.random_seed = random_seed
-        else:
-            self.random_seed = np.random.randint(2**32 - 1)
+        if not(self.FREEZE_RANDOM & bool(self.RANDOM_SEED)):
+            self.RANDOM_SEED = np.random.randint(2**32 - 1)
         
         if test_size == 0:
             X_tr, y_tr = self.X_all[:-1], self.y[:-1]
             X_te, y_te = self.X_all[-1:], self.y[-1:]
         else:
-            sss = StratifiedShuffleSplit(n_splits=1, test_size=test_size, random_state=self.random_seed)
+            sss = StratifiedShuffleSplit(n_splits=1, test_size=test_size, random_state=self.RANDOM_SEED)
             y_parent = self.cats.get_parent( self.y )
             tr, te = next( sss.split( y_parent, y_parent ) )
             X_tr, y_tr = self.X_all[ tr ], self.y[tr]
@@ -139,59 +133,30 @@ class corpus:
         self.X_tr, self.y_tr = X_tr, y_tr
         self.X_te, self.y_te = X_te, y_te
         self.term_space = terms
-        self.in_simple_split = True
-        self.in_cv_split = False
-        return self
-    
-    def cv_split(self, n_folds, random_seed=None):
-        """ This mehtod provides an efficient way to creat n_folds on the corpus for cross validation.
-        It Counts term_frequencies for each folds seperatly so that they can simply be merged. After
-        running this method, the corpus becomes an iterable object, which for each iteration creats a new
-        traing-/ test-set split. """
         
-        if not (type(n_folds) == int):
-            raise ValueError("Number of folds must be integer.")
-        elif not n_folds > 2:
-            raise ValueError("Number of folds must greater then 2.")
-        
-        fold_freqs = {}
-        
-        if random_seed:
-            self.random_seed = random_seed
-        else:
-            self.random_seed = np.random.randint(2**32 - 1)
-        
-        skf = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=self.random_seed)
-        y_parent = self.cats.get_parent( self.y )
-        
-        self.n_folds = n_folds
-        self.current_fold = 0
-        self.skf = skf.split( y_parent, y_parent )
-        self.in_cv_split = True
-        self.in_simple_split = False
-        return self
-    
-    def reset(self):
-        """ If its necessary to reapet the iteration of fold in the cross-validation, then run
-        this method first and it will set the corpus to the initial state with same folds.
-        """
-        if self.in_cv_split:
-            self.current_fold = 0
-            skf = StratifiedKFold(n_splits=self.n_folds, shuffle=True, random_state=self.random_seed)
-            y_parent = self.cats.get_parent( self.y )
-            self.skf = skf.split( y_parent, y_parent )
-        return self
+        return (X_tr, y_tr), (X_te, y_te)
     
     def __iter__(self):
-        if not self.in_cv_split:
-            raise Exception("Can not iterate befor running .cv_split(n_folds)!")
+        """ This mehtod provides an efficient way to creat n_folds on the corpus for cross validation.
+        The diffrenrence towards a standart stratified split is that it removes terms form the feature-
+        space that only appear in the test set, which results in a more realistic generalization. """
+        
+        if not(self.FREEZE_RANDOM & bool(self.RANDOM_SEED)):
+            self.RANDOM_SEED = np.random.randint(2**32 - 1)
+        
+        skf = StratifiedKFold(n_splits=self.N_FOLDS, shuffle=True, random_state=self.RANDOM_SEED)
+        y_parent = self.cats.get_parent( self.y )
+        self.skf = skf.split( y_parent, y_parent )
+        
+        self.current_fold_ = 0
         return self
     
     def __next__(self):
-        """ Iterate through folds when corpus is in cv-split. """
-        if not self.in_cv_split:
-            raise Exception("Can not iterate befor running .cv_split(n_folds)!")
-        if self.current_fold > self.n_folds:
+        """ Iterate through folds for a Stratified split,
+        returning pairs of (X_tr, y_tr), (X_te, y_te).
+        """
+        self.current_fold_ += 1
+        if self.current_fold_ > self.N_FOLDS:
             raise StopIteration
         
         tr, te = next(self.skf)
@@ -200,13 +165,8 @@ class corpus:
         
         I, J, _ = find(X_tr); J = list(set(J));
         X_tr, X_te = X_tr[:, J], X_te[:, J]
-        terms = self.all_terms[J]
         
-        self.X_tr, self.y_tr = X_tr, y_tr
-        self.X_te, self.y_te = X_te, y_te
-        self.term_space = terms
-        self.current_fold += 1
-        return self
+        return (X_tr, y_tr), (X_te, y_te)
         
     def process_example(self, raw_documents):
         """ Pass this method an iterable of documents (strings) and it will process the docuemnts
@@ -229,11 +189,7 @@ class corpus:
     def size(self):
         """Returns a tuple, where the first component correspondes to the training-set size and
         the second to the test-set size."""
-        if self.in_simple_split | self.in_cv_split:
-            n, _ = self.X_all_tr.shape
-            m, _ = self.X_all_te.shape
-            return n, m
-        else: return None
+        return self.X_all.shape
     
     def __str__(self):
         out = "";

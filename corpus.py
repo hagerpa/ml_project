@@ -1,15 +1,16 @@
-import numpy as np
-import csv
+import csv, pickle, re
 from collections import Counter
-import pickle
-from feature_extractors import tfidf, multinomial_model
-from vocabulary_builders import ig_based_non_uniform as ig_nonun
-from sklearn.preprocessing import normalize
-from filters import run_filters_sentence, run_filters_words, std_filters, stopword_filter
+from tempfile import TemporaryFile
+
+from feature_extractors import multinomial_model
+from filters import run_filters_sentence, run_filters_words
+
+import numpy as np
 from scipy import sparse
-from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit
-import spell_checker as spell_checker_class
 from scipy.sparse import find
+from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit
+
+import nltk.data
 
 def load_from_file():
     with open("corpus.pkl", "rb") as f:
@@ -37,13 +38,23 @@ class corpus:
             
             q_to_c = {}
             for qcat in qcatreader:
-                c_id = int( self.cats[ qcat[1] ] )
+                c_id = self.cats[ qcat[1] ]
                 q_id = int( qcat[2] )
                 q_to_c[ q_id ] = c_id
         
         ### Reading questions ###
-        with open(filename_questions, 'r') as qfile:
-            qreader = csv.reader(qfile); next(qreader)
+        with open(filename_questions, 'r') as file:
+            file_content = file.read()    
+            regexps = [(r"\\\"", "'")]
+            for find, replace in regexps:
+                file_content, n = re.subn(find, replace, file_content)
+        
+        with TemporaryFile("w+") as qfile:
+            qfile.write(file_content)
+            qfile.seek(0)
+            
+            qreader = csv.reader(qfile)
+            next(qreader)
             questions, y = [], []
             for row in qreader:
                 if len(row) != 21: continue # skipping rows with wrong collum length
@@ -51,9 +62,20 @@ class corpus:
                 if int(row[0]) in q_to_c:
                     questions += [ row[4].lower() ]
                     y += [ q_to_c[ int(row[0]) ] ]
-            
-            y = np.array(y, dtype=int)
-            questions = np.array(questions)
+        
+        ### Add the example questions from the category-descriptions  ###
+        tokenizer = nltk.data.load('tokenizers/punkt/german.pickle')
+        descriptions = self.cats.descriptions_
+        
+        for c, d in zip(descriptions.keys(), descriptions.values()):
+            sentences = tokenizer.tokenize( d )
+            sentences = [s for s in sentences if s[-1]=="?"]
+            labels = [ self.cats[ str(c) ] for s in sentences ]
+            questions  += sentences
+            y += labels
+        
+        y = np.array(y, dtype=int)
+        questions = np.array(questions)
         
         self.questions = questions
         self.y = y
@@ -92,19 +114,22 @@ class corpus:
         questions = run_filters_sentence(questions, sentence_filters)
         questions = np.array( run_filters_words(questions, word_filters) )
         
-        all_terms = set( w for d in questions for w in d )
-        all_terms = np.array( list(all_terms) )
-        X = multinomial_model(questions, all_terms)
+        term_space = set( w for d in questions for w in d )
+        term_space = np.array( list(term_space) )
+        X = multinomial_model(questions, term_space)
         
         keep, _ = find_duplicates(X, key=-self.freqVecCats[ y ])
         X, y = X[keep], y[keep]
+        _, J, _ = find(X); J = list(set(J));
+        X = X[:,J]
         
         self.questions = None
         self.sentence_filters += sentence_filters
         self.word_filters += word_filters
         self.X_all = X
         self.y = y
-        self.all_terms = all_terms
+        self.term_space = term_space
+        self.SUPPORT = J
         self.processed = True
         return self
     
@@ -128,11 +153,10 @@ class corpus:
         
         I, J, _ = find(X_tr); J = list(set(J));
         X_tr, X_te = X_tr[:, J], X_te[:, J]
-        terms = self.all_terms[J]
         
+        self.SUPPORT = J
         self.X_tr, self.y_tr = X_tr, y_tr
         self.X_te, self.y_te = X_te, y_te
-        self.term_space = terms
         
         return (X_tr, y_tr), (X_te, y_te)
     
@@ -183,8 +207,10 @@ class corpus:
             raw_documents = questions
         
         documents = run_filters_sentence(raw_documents, self.sentence_filters)
-        documents = np.array( run_filters_words(documents, self.word_filters) )
-        return multinomial_model(documents, self.term_space)
+        documents = run_filters_words(documents, self.word_filters)
+        X = multinomial_model(documents, self.term_space)
+        
+        return X[:, self.SUPPORT]
     
     def size(self):
         """Returns a tuple, where the first component correspondes to the training-set size and

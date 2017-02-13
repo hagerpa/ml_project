@@ -8,3 +8,4 @@ questions.pkl
 __pycache__/
 *.pyc
 .ipynb*
+._*.py

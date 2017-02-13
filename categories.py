@@ -3,6 +3,7 @@ import re
 import nltk
 from tempfile import TemporaryFile
 import numpy as np
+from bs4 import BeautifulSoup
 
 class categories:
     """A object of this class keeps track of all the categories in the classification task.
@@ -11,9 +12,13 @@ class categories:
     More over the class offers a method for printing all categories in a need way, and also
     ofers mehtods for quick acess on category information."""
     
-    def __init__(self, subcategories=False):
+    def __init__(self, catfile='category.csv', subcategories=False):
         """ By initializing a categorie object like this, immidiatly avaliable categories are
         read from the category.csv file."""
+        self.SOURCE = catfile
+        self.subcategories = subcategories
+        
+        ###### Mappings ######
         self.id_to_dbid = np.array
         self.dbid_to_id = {}
         self.names = np.array
@@ -22,25 +27,22 @@ class categories:
         self.subid_to_sub = np.array
         self.sub_to_id = {}
         self.id_to_subs = {}
-        self.subcategories = subcategories
+        
         self = self.loadfromfile()
         
     def loadfromfile(self, print_changes=False):
-        with open('category.csv', 'r') as file:
+        with open(self.SOURCE, 'r') as file:
             file_content = file.read()
-        
-        regexps = [(r"\\\"", "'"), 
-                   (re.compile(r"<span.*?/span>", re.DOTALL), ""),
-                   (r"<p.*?>", ""),
-                   (r"</p>", "")]
-        
-        for find, replace in regexps:
-            file_content, n = re.subn(find, replace, file_content)
-            if print_changes:
-                print("replaced expression {0} by expression {1} - {2} times.".format(find,replace,n))
+            file_content = BeautifulSoup(file_content, "html.parser").get_text()
+            regexps = [(r"\\\"", "'"),
+                       (r"\|\|SEPERATOR\|\|", "-"),
+                       (r"\n\\\n", "'")]
+
+            for find, replace in regexps:
+                file_content, n = re.subn(find, replace, file_content)
+                if print_changes: print("replaced expression {0} by expression {1} - {2} times.".format(find,replace,n))
         
         with TemporaryFile("w+") as file_clean:
-            file_clean = TemporaryFile("w+")
             file_clean.write(file_content)
             file_clean.seek(0)
             
@@ -48,7 +50,8 @@ class categories:
             self.id_to_dbid, self.dbid_to_id,\
                 self.names, self.sub_to_id,\
                 self.id_to_subs, self.names_to_id,\
-                self.subid_to_sub, self.sub_to_subid, = initialize(file_clean, reader)
+                self.subid_to_sub, self.sub_to_subid,\
+                self.descriptions_ = initialize(file_clean, reader)
         
         return self
     
@@ -81,7 +84,7 @@ class categories:
             elif self.subcategories:
                 return self.subid_to_sub[ref]
             else:
-                return self.names[ref]
+                return self.id_to_dbid[ref]
         elif type(ref) == str:
             if len(ref) <= 2:
                 if self.subcategories:
@@ -114,11 +117,14 @@ def initialize(catfile, catreader):
     
     names_to_id = { names[i]: i for i in range(len(names)) }
     
+    descriptions_ = {}
+    
     sub_to_id = {}
     catfile.seek(0); next(catreader);
     for row in catreader:
         if int(row[1]) != 0:
             sub_to_id[ int(row[0]) ] = dbid_to_id[ int(row[1]) ]
+            descriptions_[ int(row[0]) ] = row[5]
     
     id_to_subs = {}
     for sid, i in sub_to_id.items():
@@ -130,7 +136,8 @@ def initialize(catfile, catreader):
     subid_to_sub = np.array( list(set(list(sub_to_id.keys()))) )
     sub_to_subid = {subid_to_sub[i]: i for i in range(len(subid_to_sub))}
     
-    return id_to_dbid, dbid_to_id, names, sub_to_id, id_to_subs, names_to_id, subid_to_sub, sub_to_subid
+    return id_to_dbid, dbid_to_id, names, sub_to_id, id_to_subs,\
+            names_to_id, subid_to_sub, sub_to_subid, descriptions_
 
 def make_feature_name(name):
     featurename = name
